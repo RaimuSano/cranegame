@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#fff2f8" />
+<title>ふわもこキャッチャー — 3D UFO CATCHER</title>
+<style>
+  :root {
+    --bg: #fff3fa; --panel: rgba(255, 250, 255, .94); --line: rgba(216, 151, 198, .34);
+    --cyan: #168e9a; --pink: #e94f98; --gold: #b97900; --text: #493052; --muted: #755d7d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
+  body { background: radial-gradient(ellipse at 50% 0%, #f7fdff 0%, #e5f6ff 48%, #d5edff 100%); }
+  button { color:inherit; font:inherit; border:0; cursor:pointer; touch-action:manipulation; }
+  button:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+  .app { display:flex; flex-direction:column; width:100%; height:100%; max-width:1600px; margin:auto; padding:12px 16px 14px; gap:10px; }
+  .topbar { flex:0 0 auto; min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .brand { display:flex; align-items:center; gap:11px; min-width:0; }
+  .brand-mark { width:38px; height:38px; flex:0 0 auto; display:grid; place-items:center; border-radius:12px; color:#6d4775; background:linear-gradient(145deg,#fff1a8,#ffd0e8 55%,#cbbaff); box-shadow:0 5px 20px rgba(255,143,189,.25); font-size:20px; font-weight:900; }
+  .brand-name { font-size:14px; font-weight:900; letter-spacing:.16em; line-height:1.2; }
+  .brand-sub { color:var(--muted); font-size:10px; letter-spacing:.16em; margin-top:4px; }
+  .top-right { display:flex; align-items:center; gap:8px; }
+  .pill { border:1px solid var(--line); background:rgba(255,255,255,.82); padding:8px 11px; border-radius:999px; color:#765681; box-shadow:0 4px 14px rgba(173,119,169,.08); font-size:11px; letter-spacing:.04em; white-space:nowrap; }
+  .pill strong { color:#087d88; font-variant-numeric:tabular-nums; margin-left:5px; font-size:13px; }
+  .stage { position:relative; flex:1 1 auto; min-height:200px; overflow:hidden; border:1px solid rgba(122,167,255,.2); border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(222,244,255,.94)); box-shadow:0 18px 50px rgba(190,127,176,.18), inset 0 0 35px rgba(255,255,255,.3); }
+  #scene { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .view-tools {position:absolute;left:12px;bottom:51px;display:flex;gap:5px;z-index:2;}
+  .view-tools button {padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.92);border:1px solid var(--line);font-size:11px;color:#715780;}
+  .play-guide {font-size:11px;color:#715780;line-height:1.7;margin-top:6px;}
+  .play-guide summary {cursor:pointer;}
+  .stage:after { content:""; pointer-events:none; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 0 1px rgba(255,255,255,.5), inset 0 -55px 80px rgba(106,72,119,.06); }
+  .hud-left { position:absolute; z-index:2; top:15px; left:16px; display:flex; flex-direction:column; gap:7px; pointer-events:none; }
+  .hud-label { font-size:9px; letter-spacing:.19em; color:#9c7ca4; }
+  .hud-status { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:750; text-shadow:0 1px 5px rgba(255,255,255,.8); }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:#8190ac; box-shadow:0 0 12px currentColor; }
+  .status-dot.live { color:#5ee7b7; background:#5ee7b7; }
+  .status-dot.warn { color:#ffd47b; background:#ffd47b; }
+  .hud-right { position:absolute; z-index:2; top:14px; right:15px; display:flex; align-items:center; gap:7px; pointer-events:none; }
+  .hud-mini { background:rgba(255,255,255,.82); border:1px solid rgba(216,151,198,.3); border-radius:10px; min-width:76px; padding:7px 10px; text-align:right; backdrop-filter:blur(8px); }
+  .hud-mini span { display:block; color:#a27ba5; font-size:9px; letter-spacing:.15em; }
+  .hud-mini b { display:block; margin-top:2px; font-size:16px; letter-spacing:.03em; font-variant-numeric:tabular-nums; }
+  .tip { position:absolute; left:50%; bottom:13px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 22px); font-size:10px; color:#715780; text-align:center; background:rgba(255,255,255,.88); padding:7px 12px; border-radius:999px; border:1px solid rgba(216,151,198,.28); box-shadow:0 4px 14px rgba(183,125,177,.12); pointer-events:none; }
+  .console { display:grid; grid-template-columns:minmax(180px, 1fr) auto minmax(220px, 1fr); align-items:center; gap:18px; flex:0 0 auto; min-height:158px; padding:12px 17px; background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(255,241,250,.96)); border:1px solid var(--line); border-radius:22px; box-shadow:0 12px 32px rgba(183,125,177,.15); }
+  .control-copy { min-width:0; }
+  .eyebrow { color:#087d88; letter-spacing:.19em; font-size:9px; font-weight:800; margin-bottom:6px; }
+  .control-title { font-size:14px; font-weight:800; line-height:1.3; }
+  .control-desc { font-size:10px; color:var(--muted); line-height:1.65; margin-top:6px; max-width:300px; }
+  .stick-wrap { display:flex; align-items:center; gap:12px; justify-content:center; }
+  .stick-base { position:relative; width:118px; height:118px; border-radius:50%; flex:0 0 auto; touch-action:none; cursor:grab; background:radial-gradient(circle at 44% 37%, #fff 0%, #ffe4f2 48%, #eddbff 78%); border:2px solid rgba(221,166,213,.55); box-shadow:inset 0 4px 16px rgba(164,109,162,.12), 0 0 0 7px rgba(255,143,189,.08), 0 0 25px rgba(255,143,189,.12); }
+  .stick-base:before,.stick-base:after { content:""; position:absolute; background:rgba(127,158,216,.22); border-radius:2px; pointer-events:none; }
+  .stick-base:before { height:1px; left:13px; right:13px; top:50%; }
+  .stick-base:after { width:1px; top:13px; bottom:13px; left:50%; }
+  .axis-ring { position:absolute; inset:23px; border:1px dashed rgba(118,166,245,.28); border-radius:50%; pointer-events:none; }
+  .stick-knob { position:absolute; left:50%; top:50%; width:47px; height:47px; transform:translate(-50%,-50%); border-radius:50%; border:1px solid rgba(195,251,255,.8); background:linear-gradient(145deg,#fff6ad 0%,#ffb9da 52%,#c5b4ff 100%); box-shadow:0 5px 12px rgba(106,72,119,.18), inset 0 2px 3px rgba(255,255,255,.7), 0 0 18px rgba(255,143,189,.15); display:grid; place-items:center; color:#754c7b; font-size:20px; font-weight:900; pointer-events:none; }
+  .stick-hint { display:flex; flex-direction:column; gap:7px; font-size:10px; color:var(--muted); }
+  .stick-hint span { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .keycap { display:inline-grid; min-width:20px; height:20px; place-items:center; border-radius:6px; border:1px solid rgba(164,187,233,.24); background:#f0e7fa; color:#574068; font-size:10px; font-weight:800; }
+  .action-side { display:flex; flex-direction:column; gap:9px; justify-self:stretch; }
+  .action-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .btn { min-height:42px; padding:10px 13px; border-radius:12px; font-weight:800; font-size:12px; transition:transform .12s ease, filter .12s ease, opacity .12s ease; }
+  .btn:active { transform:scale(.98); }
+  .btn-primary { color:#68496f; background:linear-gradient(135deg,#fff2a9,#ffd0e8 55%,#cbbaff); box-shadow:0 5px 18px rgba(62,201,220,.14); }
+  .btn-primary:hover:not(:disabled) { filter:brightness(1.08); }
+  .btn-pink { background:linear-gradient(135deg,#ffc8e2,#ff91c4); color:#6d3159; box-shadow:0 5px 18px rgba(255,108,181,.12); }
+  .btn-subtle { background:rgba(255,255,255,.78); color:#715780; border:1px solid rgba(216,151,198,.32); }
+  .btn:disabled { opacity:.42; cursor:not-allowed; filter:saturate(.5); }
+  .action-caption { color:#755d7d; font-size:9px; line-height:1.55; text-align:center; }
+  .bottomline { display:flex; justify-content:space-between; align-items:center; gap:10px; color:#755d7d; font-size:9px; letter-spacing:.04em; padding:0 4px; flex:0 0 auto; }
+  .bottomline strong { color:#49345b; font-weight:700; }
+  .toast { display:none !important; }
+  .toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .toast b { display:block; font-size:20px; letter-spacing:.04em; }
+  .toast span { display:block; font-size:11px; color:#aab8d2; margin-top:7px; line-height:1.5; }
+  .win-overlay { position:absolute; z-index:8; inset:0; display:none; place-items:center; padding:18px; background:radial-gradient(ellipse at 50% 38%,rgba(255,236,248,.88),rgba(190,170,238,.83) 72%); backdrop-filter:blur(10px); }
+  .win-overlay.show { display:grid; animation:winFadeIn .28s ease-out both; }
+  .win-card { width:min(420px,100%); text-align:center; padding:24px 22px 20px; border:2px solid rgba(255,255,255,.95); border-radius:30px; background:linear-gradient(155deg,rgba(255,255,255,.99),rgba(255,237,248,.99)); box-shadow:0 22px 70px rgba(165,105,168,.24),0 0 44px rgba(255,212,123,.22),inset 0 1px rgba(255,255,255,.9); }
+  .win-kicker { color:#e7a43e; font-size:11px; font-weight:900; letter-spacing:.28em; }
+  .win-bear { font-size:clamp(100px,23vw,160px); line-height:1.18; margin:8px 0 3px; filter:drop-shadow(0 12px 18px rgba(106,72,119,.20)); animation:bearPop .55s cubic-bezier(.2,1.5,.45,1) both; }
+  .win-title { color:#8b5a9d; font-size:clamp(25px,6vw,36px); font-weight:950; letter-spacing:.04em; text-shadow:0 0 22px rgba(255,212,123,.2); }
+  .win-caption { color:#a27ba5; font-size:13px; line-height:1.7; margin:8px 0 18px; }
+  .win-overlay .btn { width:100%; min-height:46px; font-size:13px; }
+  @keyframes winFadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes bearPop { from { transform:scale(.45) rotate(-12deg); } to { transform:scale(1) rotate(0); } }
+  @media (prefers-reduced-motion: reduce) { .win-overlay.show,.win-bear { animation:none; } }
+  .loading { position:absolute; z-index:5; inset:0; display:grid; place-items:center; background:rgba(255,246,252,.96); color:#785a83; text-align:center; padding:22px; }
+  .loading.hidden { display:none; }
+  .loading b { display:block; font-size:15px; margin-bottom:8px; }
+  .loading span { font-size:11px; color:#a27ba5; line-height:1.7; }
+  .runtime-banner { position:absolute; z-index:6; left:50%; bottom:48px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 28px); padding:9px 13px; border-radius:11px; border:1px solid rgba(94,231,245,.34); background:rgba(255,255,255,.96); color:#49345b; font-size:11px; line-height:1.55; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.22); pointer-events:none; display:none; }
+  .runtime-banner.visible { display:block; }
+  .runtime-banner.error { border-color:rgba(255,108,181,.45); color:#ffe0ef; }
+  @media (max-width:600px) { .runtime-banner { bottom:43px; font-size:10px; padding:8px 10px; } }
+  @media (max-width: 820px) {
+    .app { padding:8px 8px 8px; gap:7px; }
+    .topbar { min-height:42px; }
+    .brand-mark { width:32px; height:32px; border-radius:10px; font-size:17px; }
+    .brand-name { font-size:12px; }
+    .brand-sub { font-size:8px; }
+    .pill { padding:7px 9px; font-size:9px; }
+    .pill strong { font-size:11px; }
+    .stage { border-radius:16px; min-height:180px; }
+    .hud-left { top:10px; left:10px; }
+    .hud-right { top:9px; right:9px; gap:5px; }
+    .hud-mini { min-width:62px; padding:5px 7px; }
+    .hud-mini b { font-size:13px; }
+    .tip { font-size:9px; bottom:8px; }
+    .console { grid-template-columns:minmax(0,1fr) auto; gap:9px; padding:10px; min-height:145px; border-radius:16px; }
+    .control-copy { grid-column:1 / 2; grid-row:1; align-self:start; }
+    .control-title { font-size:12px; }
+    .control-desc { font-size:9px; line-height:1.45; margin-top:4px; }
+    .stick-wrap { grid-column:1 / 2; grid-row:2; justify-content:flex-start; gap:9px; }
+    .stick-base { width:92px; height:92px; }
+    .stick-knob { width:38px; height:38px; font-size:16px; }
+    .axis-ring { inset:18px; }
+    .stick-hint { font-size:9px; gap:4px; }
+    .keycap { min-width:17px; height:17px; font-size:9px; }
+    .action-side { grid-column:2; grid-row:1 / 3; align-self:stretch; min-width:130px; }
+    .action-row { grid-template-columns:1fr; gap:6px; }
+    .btn { min-height:37px; padding:8px 8px; font-size:10px; border-radius:10px; }
+    .action-caption { font-size:8px; }
+    .bottomline { font-size:8px; }
+  }
+  @media (max-width: 420px) {
+    .top-right .pill:first-child { display:none; }
+    .console { grid-template-columns:minmax(0,1fr) 116px; }
+    .stick-base { width:82px; height:82px; }
+    .stick-knob { width:35px; height:35px; }
+    .stick-hint { display:none; }
+    .control-desc { max-width:190px; }
+    .action-side { min-width:116px; }
+    .action-caption { max-width:112px; margin:auto; }
+  }
+  @media (max-height: 650px) and (min-width: 821px) {
+    .app { padding-top:6px; padding-bottom:7px; gap:6px; }
+    .topbar { min-height:38px; }
+    .brand-mark { width:30px; height:30px; }
+    .console { min-height:125px; padding:8px 14px; }
+    .stick-base { width:94px; height:94px; }
+    .stick-knob { width:40px; height:40px; }
+  }
+  /* Molded control desk: metallic bezels, backlit switches and ball lever. */
+  .console {position:relative;isolation:isolate;grid-template-columns:minmax(190px,.95fr) minmax(170px,1fr) minmax(180px,1fr);gap:22px;padding:24px 32px 25px;min-height:224px;border:1px solid #b9aaba;border-top:5px solid #fff;border-bottom:9px solid #bba4ba;border-radius:18px 18px 29px 29px;background:linear-gradient(112deg,#fff8fc 0%,#eee7f2 42%,#fff8fc 70%,#e4d8e8);box-shadow:0 12px 0 #8d7c96,0 17px 25px #6c4f7040,inset 0 2px 1px #fff,inset 0 -2px 3px #fff;}
+  .console:before {content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background:repeating-linear-gradient(105deg,transparent 0 7px,#ffffff25 8px 9px);}
+  .console:after {content:"";position:absolute;left:25px;right:25px;top:0;height:3px;background:linear-gradient(90deg,#b6fff4,#ff8cc9,#c2b3ff);box-shadow:0 0 12px #f496cf;}
+  .panel-screw {position:absolute;width:9px;height:9px;border-radius:50%;background:linear-gradient(130deg,#fff,#9c9ca7 50%,#dedde4);box-shadow:0 1px 2px #6d5d7c70;}
+  .panel-screw:after {content:"";position:absolute;left:2px;right:2px;top:4px;height:1px;background:#797483;transform:rotate(-30deg);}
+  .screw-tl{top:12px;left:12px}.screw-tr{top:12px;right:12px}.screw-bl{bottom:10px;left:12px}.screw-br{bottom:10px;right:12px}
+  .control-copy{align-self:center;grid-column:auto;grid-row:auto;}
+  .panel-brand {font-size:11px;letter-spacing:.14em;font-weight:900;color:#735471;margin-bottom:8px;}
+  .panel-brand span{display:block;font-size:7px;letter-spacing:.24em;color:#9c8b9b;margin-top:2px;}
+  .panel-screen {padding:9px 12px;border:4px solid #b1a7b7;border-radius:9px;background:linear-gradient(145deg,#202b35,#101c29);box-shadow:0 1px 0 #fff,inset 0 2px 8px #0009;color:#c6fff2;}
+  .screen-top{display:flex;justify-content:space-between;font:8px monospace;letter-spacing:.13em;color:#86baaf;}
+  .screen-digits{display:flex;align-items:baseline;gap:7px;line-height:1.05;margin:4px 0;}
+  .screen-digits b {font:700 36px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.05em;text-shadow:0 0 12px #64ffbd7a;}
+  .screen-digits small{font:9px monospace;color:#80b2a9;}
+  .screen-bottom{display:flex;align-items:center;gap:6px;min-height:23px;}
+  .screen-bottom i{width:5px;height:5px;border-radius:50%;background:#6b7e7a;flex-shrink:0;}
+  .screen-bottom i.on{background:#8fffd3;box-shadow:0 0 7px #8fffd3;}
+  .screen-bottom #controlDesc {font-size:8px;line-height:1.35;color:#9fc8c0;margin:0;max-width:210px;}
+  .panel-service{display:flex;gap:7px;margin-top:9px;}
+  .panel-service .btn{min-height:29px;padding:5px 10px;font-size:9px;border-radius:5px;background:linear-gradient(#fff,#e2d7e4);border:1px solid #bca9c0;box-shadow:0 2px 0 #a995af;color:#715274;}
+  .panel-service #startBtn{flex:1;background:linear-gradient(#fffce3,#f4d889);color:#705728;}
+  .panel-service .btn:active{transform:translateY(2px);box-shadow:none;}
+  .deck-label{text-align:center;color:#6f556f;font-weight:900;font-size:11px;letter-spacing:.12em;line-height:1.25;}
+  .deck-label b{display:inline-grid;place-items:center;width:20px;height:20px;background:#8c6b91;color:#fff;border-radius:50%;font-size:10px;letter-spacing:0;margin-right:4px;}
+  .deck-label span{display:block;font-size:8px;font-weight:500;letter-spacing:.02em;margin-top:5px;}
+  .stick-wrap{grid-column:auto;grid-row:auto;display:flex;flex-direction:column;gap:11px;align-items:center;justify-content:center;}
+  .stick-base{width:108px;height:108px;border:5px solid #c5bdc9;background:radial-gradient(circle,#302d38 0 20%,#7f7489 21% 26%,#ded9e3 28% 58%,#fff 61%,#99909f 66%,#e6e1eb 70%);box-shadow:0 5px 0 #a295af,0 8px 10px #68506b40,inset 0 2px 3px #fff;}
+  .stick-base:before{left:30%;right:30%;top:35%;height:32%;border-radius:50%;background:linear-gradient(90deg,#68616e,#eee9f1,#736879);transform:rotate(-12deg);}
+  .stick-base:after,.axis-ring{display:none;}
+  .stick-knob{width:49px;height:49px;border:1px solid #efc1e1;background:radial-gradient(circle at 32% 24%,#fff 0%,#fff2fc 7%,#efa3cf 24%,#d6589d 58%,#8e3c7b 89%);box-shadow:0 13px 10px #35273866,inset -3px -4px 6px #73276855;z-index:2;margin-top:-7px;}
+  .lever-arrow{position:absolute;font-size:8px;color:#756b82;pointer-events:none;}.arrow-up{top:2px;left:44%}.arrow-down{bottom:1px;left:44%}.arrow-left{left:2px;top:42%}.arrow-right{right:2px;top:42%}
+  .stick-hint{display:flex;font-size:8px;letter-spacing:.05em;}
+  .action-side{grid-column:auto;grid-row:auto;align-items:center;gap:11px;min-width:0;}
+  .button-bezel{padding:7px;border-radius:50%;background:linear-gradient(145deg,#fff 10%,#bab4c5 38%,#f5f0f8 55%,#9b8caa);box-shadow:0 5px 0 #9b8aa4,0 8px 10px #77617c40;}
+  #dropBtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:96px;height:96px;min-height:0;border-radius:50%;padding:6px;border:3px solid #ffa5cf;background:radial-gradient(circle at 38% 24%,#fff0f8,#ffafd5 22%,#f451a3 67%,#b92f7f);box-shadow:inset 0 3px 3px #fff9,inset 0 -6px 4px #b62c7b99,0 0 0 2px #6a4465;transition:transform .08s,filter .12s,box-shadow .12s;color:#fff;text-shadow:0 1px 2px #a83178;font-size:11px;}
+  #dropBtn .push-symbol{font-size:29px;line-height:1;font-weight:900;}#dropBtn small{font-size:7px;letter-spacing:.22em;opacity:.85;}
+  #dropBtn:disabled{opacity:.8;filter:saturate(.45) brightness(.83);}
+  #dropBtn:not(:disabled){box-shadow:inset 0 3px 3px #fff9,inset 0 -6px 4px #b62c7b99,0 0 0 2px #914b7b,0 0 17px #ff80c680;}
+  #dropBtn:active:not(:disabled){transform:translateY(4px);box-shadow:inset 0 3px 6px #ad276c88,0 0 0 2px #914b7b;}
+  .console[data-mode="lower"] #dropBtn{background:radial-gradient(circle at 38% 24%,#fffce9,#ffdb8b 22%,#ffa83c 67%,#cf682d);border-color:#ffe0a3;text-shadow:0 1px 2px #a86528;}
+  .action-caption{max-width:190px;font-size:8px;line-height:1.45;margin:0;}
+  .play-guide{position:absolute;right:25px;bottom:7px;margin:0;font-size:8px;z-index:4;}
+  .play-guide>div{position:absolute;bottom:21px;right:0;width:260px;padding:13px;background:#fffafefa;border:1px solid #d4b4ce;border-radius:10px;box-shadow:0 8px 25px #69497540;font-size:11px;line-height:1.8;}
+  @media(max-width:820px){.console{grid-template-columns:minmax(110px,1fr) minmax(95px,1fr) minmax(100px,1fr);gap:9px;min-height:211px;padding:20px 16px 22px;border-bottom-width:7px;}.panel-brand{font-size:9px;letter-spacing:.08em;}.panel-brand span{font-size:6px;}.panel-screen{padding:7px;border-width:3px;}.screen-digits b{font-size:29px;}.screen-top{font-size:6px;}.screen-bottom #controlDesc{font-size:7px;}.panel-service{gap:4px;flex-wrap:wrap;}.panel-service .btn{font-size:8px;padding:5px 7px;min-height:26px;}.panel-service #startBtn{flex-basis:100%;}.deck-label{font-size:9px;letter-spacing:.04em;}.deck-label span{font-size:7px;max-width:115px;}.deck-label b{width:17px;height:17px;font-size:8px;}.stick-base{width:88px;height:88px;}.stick-knob{width:42px;height:42px;}.stick-hint{display:flex;font-size:7px;}.button-bezel{padding:6px;}#dropBtn{width:81px;height:81px;font-size:10px;}.action-caption{font-size:7px;max-width:110px;}.play-guide{right:17px;bottom:5px;}.bottomline{margin-top:6px;}}
+  @media(max-width:380px){.console{grid-template-columns:minmax(100px,1fr) minmax(82px,.85fr) minmax(90px,.9fr);gap:5px;padding:20px 12px 22px;}.stick-base{width:78px;height:78px;}#dropBtn{width:72px;height:72px;}.screen-digits b{font-size:25px;}.deck-label span{font-size:6px;}.screen-digits{gap:3px;}}
+  @media(max-height:650px) and (min-width:821px){.console{min-height:174px;padding-top:14px;padding-bottom:18px;}.stick-base{width:82px;height:82px;}.stick-knob{width:39px;height:39px;}#dropBtn{width:76px;height:76px;}.panel-screen{padding:5px 9px;}.screen-digits b{font-size:28px;}.stick-wrap,.action-side{gap:6px;}.panel-brand{margin-bottom:4px;}}
+
+  #prizeMenu{width:min(520px,calc(100vw - 28px));max-height:85dvh;overflow:auto;padding:24px;border:1px solid #efd1ec;border-radius:22px;background:linear-gradient(140deg,#fffaff,#eee9ff);color:#493052;box-shadow:0 24px 90px #1e163780;}
+  #prizeMenu::backdrop{background:#1b103ba8;backdrop-filter:blur(5px);}
+  .menu-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;}.menu-heading small{font-size:9px;letter-spacing:.2em;color:#aa729e;}.menu-heading h2{font-size:20px;margin:6px 0;}.menu-heading button{width:36px;height:36px;border-radius:50%;background:#e8d9ed;font-size:24px;flex-shrink:0;}
+  #prizeMenuNote,.menu-footnote{font-size:11px;line-height:1.7;color:#826583;}.prize-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0;}
+  .prize-choice{display:flex;flex-direction:column;align-items:center;gap:7px;border:2px solid transparent;border-radius:17px;background:#ffffffba;padding:15px 8px;color:#614065;}
+  .prize-choice>span{font-size:47px;line-height:1.3;}.prize-choice b{font-size:12px;}.prize-choice small{font-size:9px;color:#95759b;}.prize-choice em{font-style:normal;font-size:10px;padding:5px 17px;border-radius:20px;background:#eee5f5;}
+  .prize-choice[aria-pressed="true"]{border-color:#ce79bd;box-shadow:0 0 0 3px #eec9ea55;}.prize-choice[aria-pressed="true"] em{background:#ce79bd;color:#fff;}.prize-choice:disabled{opacity:.55;cursor:not-allowed;}
+  #prizeMenuBtn{font-weight:800;cursor:pointer;}#prizeMenuBtn:disabled{opacity:.5;}
+  @media(max-width:420px){.top-right{gap:4px;}.top-right .pill{padding:7px;font-size:8px;}.top-right .pill:first-child{display:block;}.top-right #roundNum{display:none;}.menu-heading h2{font-size:17px;}#prizeMenu{padding:18px;}.prize-choice b{font-size:11px;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">♡</div>
+      <div><div class="brand-name">ふわもこキャッチャー</div><div class="brand-sub">♡ FUWAMOCO PRIZE TIME ♡</div></div>
+    </div>
+    <div class="top-right">
+      <button class="pill" id="prizeMenuBtn" disabled>景品を選ぶ</button>
+      <div class="pill">ROUND <strong id="roundNum">01</strong></div>
+      <div class="pill">PRIZES <strong id="scoreTop">0</strong></div>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="scene" aria-label="3D UFOキャッチャー"></canvas>
+    <div class="hud-left">
+      <div class="hud-label">MACHINE STATUS</div>
+      <div class="hud-status"><i class="status-dot" id="statusDot"></i><span id="statusText">READY TO PLAY</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-mini"><span>TIME LEFT</span><b id="timerDisplay">20.0s</b></div>
+      <div class="hud-mini"><span>CLAW HEIGHT</span><b id="heightDisplay">100%</b></div>
+    </div>
+    <div class="view-tools" aria-label="カメラの視点"><button id="viewFront">正面</button><button id="viewSide">側面</button><button id="viewReset">全体</button></div>
+    <div class="tip" id="tipText">ハンドルをドラッグして位置を調整 · 20秒間自由に操作</div>
+    <div class="toast" id="toast"><b id="toastTitle">READY?</b><span id="toastText">STARTでゲーム開始</span></div>
+    <div class="win-overlay" id="winOverlay" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+      <div class="win-card">
+        <div class="win-kicker">♡ やったね！ GET ♡</div>
+        <div class="win-bear" aria-hidden="true">🧸</div><div style="font-size:18px;letter-spacing:.25em;color:#f2b7d7;margin:-2px 0 6px">✧･ﾟ: *✧･ﾟ:* ♡ *:･ﾟ✧*:･ﾟ✧</div>
+        <div class="win-title" id="winTitle">GET!!</div>
+        <div class="win-caption" id="winCaption">くまのぬいぐるみを獲得！</div>
+        <button class="btn btn-primary" id="winContinue">やった！ 続ける</button>
+      </div>
+    </div>
+    <div class="loading" id="loading"><div><b>3D MACHINEを準備中…</b><span>3D描画エンジンと物理演算エンジンを読み込んでいます。<br>ネットワーク接続を確認してください。</span></div></div>
+  </main>
+
+  <section class="console" aria-label="操作パネル">
+    <i class="panel-screw screw-tl" aria-hidden="true"></i><i class="panel-screw screw-tr" aria-hidden="true"></i><i class="panel-screw screw-bl" aria-hidden="true"></i><i class="panel-screw screw-br" aria-hidden="true"></i>
+    <div class="control-copy">
+      <div class="panel-brand">FUWAMOCO <span>CONTROL DECK</span></div>
+      <div class="panel-screen"><div class="screen-top"><span>TIME</span><span id="panelPhase">READY</span></div><div class="screen-digits"><b id="panelTimer">20.0</b><small>SEC</small></div><div class="screen-bottom"><i id="panelLamp"></i><span id="controlDesc">スタートボタンでプレイ開始</span></div></div>
+      <div class="panel-service"><button class="btn" id="startBtn">ゲームスタート</button><button class="btn" id="resetBtn" aria-label="景品とアームをリセット">RESET</button></div>
+    </div>
+    <div class="stick-wrap">
+      <div class="deck-label"><b>01</b> MOVE <span>位置を合わせる</span></div>
+      <div class="stick-base" id="stickBase" aria-label="アーム移動レバー" role="application"><div class="axis-ring"></div><div class="stick-knob" id="stickKnob"></div><span class="lever-arrow arrow-up">▲</span><span class="lever-arrow arrow-down">▼</span><span class="lever-arrow arrow-left">◀</span><span class="lever-arrow arrow-right">▶</span></div>
+      <div class="stick-hint"><span>ドラッグ / WASD</span></div>
+    </div>
+    <div class="action-side">
+      <div class="deck-label"><b>02</b> CATCH <span>押して下降・もう一度で閉じる</span></div>
+      <div class="button-bezel"><button class="btn btn-pink" id="dropBtn" disabled><span class="push-symbol" id="dropSymbol">↓</span><span id="dropLabel">下降</span><small>PUSH</small></button></div>
+      <div class="action-caption" id="actionCaption">① レバーで移動 → ② ボタンで下降</div>
+    </div>
+    <details class="play-guide"><summary>操作ガイド ⓘ</summary><div>レバーで狙いを定め、丸いボタンで下降。<br>下降中にもう一度押すと、その高さで閉じます。<br>画面ドラッグで回転、ピンチ／ホイールで拡大縮小。<br>次のプレイは景品位置を引き継ぎ、RESETで初期位置へ戻り、景品を並べ直して再スタートします。</div></details>
+  </section>
+  <footer class="bottomline"><span><strong>PHYSICS MODE</strong> · 重力 / 摩擦 / 衝突 / 回転</span><span>PC: ドラッグ・WASD　｜　スマホ: フリック操作</span></footer>
+</div>
+
+
+<dialog id="prizeMenu" aria-labelledby="prizeMenuTitle">
+  <div class="menu-heading"><div><small>PRIZE COLLECTION</small><h2 id="prizeMenuTitle">今日は、どの子を狙う？</h2></div><button id="prizeMenuClose" aria-label="メニューを閉じる">×</button></div>
+  <p id="prizeMenuNote">選んだ景品を台に1つ配置します。</p>
+  <div class="prize-choices">
+    <button class="prize-choice" data-prize="0" aria-pressed="true"><span>🧸</span><b>おおきなくま</b><small>ふわふわの定番</small><em>選択中</em></button>
+    <button class="prize-choice" data-prize="1" aria-pressed="false"><span>🐰</span><b>いちごミルクうさぎ</b><small>ピンクの長いお耳</small><em>選ぶ</em></button>
+    <button class="prize-choice" data-prize="2" aria-pressed="false"><span>🐶</span><b>たれみみのポチ</b><small>やさしいミルクティー色</small><em>選ぶ</em></button>
+    <button class="prize-choice" data-prize="3" aria-pressed="false"><span>🌟</span><b>おほしさまのモコ</b><small>星飾りのオリジナルキャラ</small><em>選ぶ</em></button>
+  </div>
+  <p class="menu-footnote">切り替えると景品は初期配置に戻ります。<br>プレイ中は変更できません。</p>
+</dialog>
+
+<script>
+// Robust staged loader: show a Three.js-only cabinet preview before physics loads.
+(function () {
+  'use strict';
+  const stage = document.getElementById('stage');
+  const loading = document.getElementById('loading');
+  const banner = document.createElement('div');
+  banner.className = 'runtime-banner';
+  banner.id = 'runtimeBanner';
+  stage.appendChild(banner);
+
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.id = 'previewScene';
+  previewCanvas.setAttribute('aria-label', '3D筐体プレビュー');
+  Object.assign(previewCanvas.style, {position:'absolute', inset:'0', width:'100%', height:'100%', display:'block', zIndex:'1'});
+  stage.appendChild(previewCanvas);
+  let previewRenderer = null, previewScene = null, previewCamera = null, previewFrame = 0, previewAlive = false;
+  let svgFallback = null;
+
+  function setBanner(message, error=false) {
+    banner.textContent = message;
+    banner.classList.toggle('error', !!error);
+    banner.classList.add('visible');
+  }
+  function disableControls() {
+    ['startBtn','dropBtn','resetBtn'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=true; });
+    const stick=document.getElementById('stickBase'); if(stick) { stick.style.opacity='.45'; stick.style.pointerEvents='none'; }
+  }
+  function showSvgFallback(message) {
+    if (previewRenderer) { try { previewRenderer.dispose(); } catch (_) {} previewRenderer=null; }
+    previewCanvas.style.display='none';
+    if (!svgFallback) {
+      svgFallback=document.createElement('div');
+      svgFallback.id='sceneSvgFallback';
+      Object.assign(svgFallback.style,{position:'absolute',inset:'0',zIndex:'1',display:'grid',placeItems:'center',overflow:'hidden'});
+      svgFallback.innerHTML = `<svg viewBox="0 0 900 620" role="img" aria-label="UFOキャッチャー筐体イラスト" style="width:100%;height:100%;display:block">
+        <defs><linearGradient id="bodyG" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#425878"/><stop offset=".48" stop-color="#192844"/><stop offset="1" stop-color="#0c1428"/></linearGradient><linearGradient id="glassG" x1="0" x2="1"><stop stop-color="#7deaff" stop-opacity=".2"/><stop offset="1" stop-color="#5b72b7" stop-opacity=".05"/></linearGradient><linearGradient id="topG" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#5ee7f5"/><stop offset="1" stop-color="#ff6cb5"/></linearGradient></defs>
+        <ellipse cx="455" cy="548" rx="315" ry="38" fill="#000" opacity=".27"/><path d="M210 140 L624 112 L710 180 L710 488 L630 530 L205 500 Z" fill="url(#bodyG)" stroke="#7690b4" stroke-width="5"/><path d="M236 160 L605 137 L675 192 L675 435 L235 454 Z" fill="url(#glassG)" stroke="#5ee7f5" stroke-opacity=".65" stroke-width="4"/><path d="M236 160 L280 183 L280 448 L235 454 Z" fill="#9eeeff" opacity=".13"/><path d="M605 137 L675 192 L675 435 L630 441 L630 166 Z" fill="#8bb1eb" opacity=".12"/><path d="M208 135 L622 106 L713 173 L296 204 Z" fill="#263956" stroke="url(#topG)" stroke-width="5"/><path d="M205 500 L630 530 L710 488 L280 464 Z" fill="#0b1223" stroke="#5ee7f5" stroke-opacity=".6" stroke-width="4"/>
+        <path d="M300 195 L300 420 M620 176 L620 437 M300 420 L620 437" stroke="#8ca9d5" stroke-opacity=".45" stroke-width="3" fill="none"/><path d="M320 224 L600 207" stroke="#ffd47b" stroke-width="7" stroke-linecap="round"/><path d="M445 212 L445 300" stroke="#b9cee9" stroke-width="5"/><circle cx="445" cy="311" r="23" fill="#263956" stroke="#ffd47b" stroke-width="6"/><path d="M432 322 L410 372 L424 391 M445 329 L445 379 L455 398 M458 322 L481 372 L468 391" stroke="#d8e4f7" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <g stroke="#8c6546" stroke-width="3"><g transform="translate(340 366)"><ellipse cx="0" cy="24" rx="31" ry="38" fill="#b87943"/><circle cx="0" cy="-11" r="27" fill="#b87943"/><circle cx="-18" cy="-31" r="10" fill="#b87943"/><circle cx="18" cy="-31" r="10" fill="#b87943"/><ellipse cx="0" cy="29" rx="18" ry="23" fill="#f0c58f"/><circle cx="-9" cy="-14" r="3" fill="#202334"/><circle cx="9" cy="-14" r="3" fill="#202334"/><ellipse cx="0" cy="-5" rx="4" ry="3" fill="#202334"/></g><g transform="translate(437 399)"><ellipse cx="0" cy="15" rx="30" ry="34" fill="#f1c9d7"/><circle cx="0" cy="-18" r="25" fill="#f1c9d7"/><ellipse cx="-12" cy="-47" rx="7" ry="20" fill="#f1c9d7"/><ellipse cx="12" cy="-47" rx="7" ry="20" fill="#f1c9d7"/><ellipse cx="0" cy="20" rx="16" ry="19" fill="#ffedf2"/><circle cx="-8" cy="-20" r="3" fill="#202334"/><circle cx="8" cy="-20" r="3" fill="#202334"/></g><g transform="translate(535 380)"><ellipse cx="0" cy="19" rx="29" ry="36" fill="#9caec5"/><circle cx="0" cy="-14" r="25" fill="#9caec5"/><path d="M-22 -29 L-16 -53 L-2 -32 M8 -32 L21 -53 L24 -25" fill="#9caec5"/><ellipse cx="0" cy="24" rx="16" ry="18" fill="#d9e1ec"/><circle cx="-8" cy="-16" r="3" fill="#202334"/><circle cx="8" cy="-16" r="3" fill="#202334"/></g></g>
+        <path d="M300 469 L610 483" stroke="#5ee7f5" stroke-width="4"/><rect x="358" y="495" width="200" height="25" rx="6" fill="#0a1327" stroke="#536887"/><text x="458" y="512" font-size="12" fill="#5ee7f5" text-anchor="middle" font-family="sans-serif" letter-spacing="3">PRIZE LAB</text>
+      </svg>`;
+      stage.appendChild(svgFallback);
+    }
+    setBanner(message, true);
+    loading.classList.add('hidden');
+    disableControls();
+  }
+
+  function loadScript(urls, globalName) {
+    return new Promise(async (resolve, reject) => {
+      if (window[globalName]) return resolve(window[globalName]);
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          await new Promise((res, rej) => {
+            const script=document.createElement('script');
+            let done=false;
+            const finish=(fn,value)=>{if(done)return;done=true;clearTimeout(timer);script.onload=null;script.onerror=null;fn(value);};
+            const timer=setTimeout(()=>{script.remove();rej(new Error('timeout: '+url));},4500);
+            script.src=url; script.async=true;
+            script.onload=()=>finish(res);
+            script.onerror=()=>{script.remove();finish(rej,new Error('failed: '+url));};
+            document.head.appendChild(script);
+          });
+          if (window[globalName]) return resolve(window[globalName]);
+          lastError=new Error(globalName+' が見つかりません: '+url);
+        } catch (err) { lastError=err; }
+      }
+      reject(lastError || new Error(globalName+' load failed'));
+    });
+  }
+
+  function initPreview() {
+    try {
+      const T=window.THREE;
+      previewScene=new T.Scene();
+      previewScene.background=new T.Color(0x1e90ff);
+      previewScene.fog=null;
+      previewCamera=new T.PerspectiveCamera(39,1,.1,80);
+      previewCamera.position.set(8.4,6.9,10.9); previewCamera.lookAt(0,2.0,0);
+      previewRenderer=new T.WebGLRenderer({canvas:previewCanvas,antialias:true,alpha:true,powerPreference:'high-performance'});
+      previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+      if ('outputColorSpace' in previewRenderer && T.SRGBColorSpace) previewRenderer.outputColorSpace=T.SRGBColorSpace;
+      else if ('outputEncoding' in previewRenderer && T.sRGBEncoding) previewRenderer.outputEncoding=T.sRGBEncoding;
+      previewRenderer.setClearColor(0x1e90ff,1);
+      previewScene.add(new T.HemisphereLight(0xb7d5ff,0x252538,1.55));
+      const key=new T.DirectionalLight(0xfff0db,2.1); key.position.set(-5,10,7); previewScene.add(key);
+      const rim=new T.PointLight(0x46dff5,18,16); rim.position.set(3,4,-3); previewScene.add(rim);
+      const pink=new T.PointLight(0xff69b4,10,12); pink.position.set(-3,3,4); previewScene.add(pink);
+      const mat=(c,r=.5,m=0,extra={})=>new T.MeshStandardMaterial({color:c,roughness:r,metalness:m,...extra});
+      const M={dark:mat(0x73557f,.48,.12),frame:mat(0xf45b9a,.32,.12),trim:mat(0xb39ae0,.3,.12),floor:mat(0x35476f,.5,.04),cyan:mat(0x168e9a,.28,.12,{emissive:0x07555d,emissiveIntensity:.18}),gold:mat(0xf3bd4f,.3,.35),claw:mat(0x9aa3ad,.38,.24),glass:new T.MeshPhysicalMaterial({color:0xb9efff,roughness:.18,metalness:.02,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide})};
+      const root=new T.Group(); previewScene.add(root);
+      function box(size,pos,material,parent=root){const o=new T.Mesh(new T.BoxGeometry(...size),material);o.position.set(...pos);parent.add(o);return o;}
+      function sph(pos,scale,material,parent=root){const o=new T.Mesh(new T.SphereGeometry(1,18,14),material);o.position.set(...pos);o.scale.set(...scale);parent.add(o);return o;}
+      function rod(p1,p2,r,material,parent=root){const a=new T.Vector3(...p1),b=new T.Vector3(...p2),d=b.clone().sub(a);const o=new T.Mesh(new T.CylinderGeometry(r*.78,r,d.length(),12),material);o.position.copy(a.add(b).multiplyScalar(.5));o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());parent.add(o);return o;}
+      const floor=new T.Mesh(new T.PlaneGeometry(100,100),mat(0x35476f,.8,.02));floor.rotation.x=-Math.PI/2;floor.position.y=-1.42;root.add(floor);
+      box([6.05,.92,5.0],[0,-.57,0],M.dark);
+      box([6.14,.13,5.08],[0,-1.08,0],M.trim);
+      box([5.7,.045,4.65],[0,-.055,0],M.floor);
+      // The prize chute is indicated by a gold rim in the front-right corner.
+      box([1.0,.035,.06],[2.02,.0,1.70],M.gold);box([1.0,.035,.06],[2.02,.0,.72],M.gold);
+      box([.06,.035,1.02],[1.52,.0,1.21],M.gold);box([.06,.035,1.02],[2.52,.0,1.21],M.gold);
+      for(const x of [-2.82,2.82]) for(const z of [-2.27,2.27]) box([.15,5.15,.15],[x,2.55,z],M.trim);
+      box([5.85,.28,4.95],[0,5.23,0],M.frame);
+      box([5.45,.055,.055],[0,5.06,2.48],M.cyan);
+      box([5.68,.10,.12],[0,4.91,-2.25],M.gold);
+      box([.12,.10,4.45],[-.15,4.91,0],M.gold);
+      const glass=new T.Group();root.add(glass);
+      box([.022,4.87,4.38],[-2.70,2.60,0],M.glass,glass);box([.022,4.87,4.38],[2.70,2.60,0],M.glass,glass);
+      box([5.38,4.87,.022],[0,2.60,-2.20],M.glass,glass);box([5.38,4.87,.022],[0,2.60,2.20],M.glass,glass);
+      // Facia, LEDs and front badge.
+      box([5.72,.5,.18],[0,-.48,2.55],M.frame);
+      box([4.95,.028,.035],[0,-.28,2.66],M.cyan);
+      box([1.7,.24,.045],[0,-.49,2.66],M.dark);
+      // Preview trolley and a clearly visible three-prong claw.
+      const trolley=new T.Group();root.add(trolley);box([.68,.18,.56],[0,4.82,0],M.trim,trolley);box([.43,.06,.37],[0,4.69,0],M.dark,trolley);
+      const cable=new T.Mesh(new T.CylinderGeometry(.031,.031,1,10),M.claw);cable.position.set(0,3.91,0);cable.scale.y=1.5;root.add(cable);
+      const clawGroup=new T.Group();root.add(clawGroup);
+      const hub=new T.Mesh(new T.CylinderGeometry(.30,.25,.20,24),M.dark);hub.position.set(0,3.13,0);clawGroup.add(hub);
+      const ring=new T.Mesh(new T.CylinderGeometry(.335,.335,.055,24),M.gold);ring.position.set(0,3.035,0);clawGroup.add(ring);
+      for(let i=0;i<3;i++){const a=2*Math.PI*i/3+Math.PI/6;const top=[Math.cos(a)*.20,3.03,Math.sin(a)*.20],mid=[Math.cos(a)*.52,2.57,Math.sin(a)*.52],toe=[Math.cos(a)*.94,2.08,Math.sin(a)*.94];rod(top,mid,.096,M.claw,clawGroup);rod(mid,toe,.082,M.claw,clawGroup);sph(mid,[.105,.105,.105],M.gold,clawGroup);}
+      // One oversized plush prize, enlarged proportionally to its physical collision shape.
+      {const fur=mat(0x8b4513,.92,0),belly=mat(0xd2a679,.96,0),dark=mat(0x202334,.52,0),shine=mat(0xffffff,.25,0);const g=new T.Group();g.position.set(.05,.30,.12);g.scale.setScalar(1.55);g.rotation.y=-.08;root.add(g);sph([0,.17,0],[.24,.30,.20],fur,g);sph([0,.52,0],[.205,.205,.19],fur,g);sph([0,.145,.175],[.145,.19,.045],belly,g);sph([-.07,.54,.175],[.022,.028,.014],dark,g);sph([.07,.54,.175],[.022,.028,.014],dark,g);sph([-.078,.55,.190],[.008,.01,.006],shine,g);sph([.062,.55,.190],[.008,.01,.006],shine,g);sph([0,.49,.193],[.025,.018,.012],dark,g);sph([-.25,.20,0],[.11,.13,.12],fur,g);sph([.25,.20,0],[.11,.13,.12],fur,g);sph([-.12,-.06,.02],[.12,.13,.13],fur,g);sph([.12,-.06,.02],[.12,.13,.13],fur,g);sph([-.13,.70,0],[.075,.08,.07],fur,g);sph([.13,.70,0],[.075,.08,.07],fur,g);}
+      // Face the collection and frame toward camera; the glass remains translucent.
+      previewAlive=true;
+      function resize(){if(!previewRenderer)return;const r=stage.getBoundingClientRect();previewCamera.aspect=Math.max(1,r.width)/Math.max(1,r.height);previewCamera.fov=window.innerWidth<600?43:39;previewCamera.updateProjectionMatrix();previewRenderer.setSize(Math.max(1,r.width),Math.max(1,r.height),false);}
+      window.addEventListener('resize',resize);resize();
+      let last=0;function draw(now){if(!previewAlive)return;previewFrame=requestAnimationFrame(draw);const t=now*.001;clawGroup.position.x=Math.sin(t*.42)*.10;clawGroup.position.z=Math.cos(t*.35)*.07; trolley.position.x=clawGroup.position.x;trolley.position.z=clawGroup.position.z;cable.position.x=clawGroup.position.x;cable.position.z=clawGroup.position.z; if(now-last>20){previewRenderer.render(previewScene,previewCamera);last=now;}}
+      previewFrame=requestAnimationFrame(draw);
+      return true;
+    } catch(err) {
+      console.error('3D preview initialization failed:',err);
+      showSvgFallback('WebGLで3D描画できないため、筐体の簡易表示に切り替えました。WebGL対応ブラウザを確認してください。');
+      return false;
+    }
+  }
+
+  window.__prizeFallback = {
+    getRenderer() { return previewRenderer; },
+    getCanvas() { return previewCanvas; },
+    stop() {
+      // Stop preview animation but preserve its canvas and WebGL context for the live game.
+      // Reusing one context avoids failures on machines/browsers that limit WebGL contexts.
+      previewAlive=false;
+      if(previewFrame) cancelAnimationFrame(previewFrame);
+      if(svgFallback&&svgFallback.parentNode) svgFallback.remove();
+      if(!previewRenderer && previewCanvas&&previewCanvas.parentNode) previewCanvas.remove();
+      banner.classList.remove('visible');
+    },
+    showError(message) { setBanner(message,true); disableControls(); loading.classList.add('hidden'); }
+  };
+
+  async function boot() {
+    disableControls();
+    try {
+      await loadScript([
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.150.1/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js',
+        'https://unpkg.com/three@0.150.1/build/three.min.js'
+      ],'THREE');
+    } catch (err) {
+      console.error(err);
+      showSvgFallback('Three.jsを読み込めませんでした。ネット接続またはCDNアクセスを確認してください。簡易筐体を表示しています。');
+      return;
+    }
+    const previewOK=initPreview();
+    if(!previewOK)return;
+    loading.classList.add('hidden');
+    setBanner('3D筐体を表示しました。物理エンジンを読み込み中…');
+    try {
+      await loadScript([
+        'https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js',
+        'https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js',
+        'https://unpkg.com/cannon@0.6.2/build/cannon.min.js'
+      ],'CANNON');
+      window.__PRIZE_LIBS_READY=true;
+      window.dispatchEvent(new Event('prize-libs-ready'));
+    } catch(err) {
+      console.error('Cannon.js could not be loaded:',err);
+      setBanner('3D筐体は表示中ですが、物理エンジンを読み込めないため操作できません。接続を確認して再読み込みしてください。',true);
+      disableControls();
+    }
+  }
+  boot();
+})();
+</script>
+<script>
+function startFullGame() {
+  try {
+    (() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const fallbackRenderer = window.__prizeFallback && window.__prizeFallback.getRenderer();
+  const canvas = (window.__prizeFallback && window.__prizeFallback.getCanvas()) || $('scene');
+  const loading = $('loading');
+  if (!window.THREE || !window.CANNON) {
+    loading.innerHTML = '<div><b>ライブラリを読み込めませんでした</b><span>インターネット接続を確認して再読み込みしてください。<br>Three.js / Cannon.js のCDNが必要です。</span></div>';
+    return;
+  }
+
+  // ---------------------- Three.js rendering ----------------------
+  const scene = new THREE.Scene();
+  scene.background = null;
+  scene.fog = new THREE.Fog(0x17132c,22,55);
+  const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 70);
+  camera.position.set(8.2, 6.8, 10.6);
+  camera.lookAt(0, 2.25, 0);
+  const renderer = fallbackRenderer || new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  if (!fallbackRenderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+  // CSS background supports both local files and hosted pages without a WebGL image upload.
+  renderer.setClearColor(0x17132c,0);
+  const backgroundImage=new Image();
+  backgroundImage.onload=()=>{renderer.domElement.style.backgroundImage='url("background.png")';};
+  backgroundImage.onerror=()=>{console.warn(' をHTMLと同じフォルダに配置してください。');};
+  backgroundImage.src='background.png';
+  renderer.domElement.style.backgroundColor='#17132c';
+  renderer.domElement.style.backgroundSize='cover';
+  renderer.domElement.style.backgroundPosition='center center';
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding; // Three.js r150 uses outputEncoding
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.95;
+
+  // Touch / mouse camera controls. One-finger swipe rotates the cabinet view;
+  // two-finger pinch zooms and two-finger drag gently pans the target. These
+  // controls are deliberately attached to the scene canvas, not the joystick,
+  // so the crane controls remain independent.
+  canvas.style.touchAction='none';
+  let viewAzimuth=Math.atan2(camera.position.x,camera.position.z);
+  let viewElevation=0.32;
+  let viewDistance=Math.hypot(camera.position.x,camera.position.z);
+  let viewTargetY=2.25;
+  const viewPointers=new Map();
+  let viewStart={x:0,y:0,az:0,el:0,dist:0,targetY:2.25};
+  let pinchStart=null;
+  function applyView(){
+    viewAzimuth=clamp(viewAzimuth,-1.25,1.25);
+    viewElevation=clamp(viewElevation,-0.05,0.95);
+    viewDistance=clamp(viewDistance,6.5,18);
+    viewTargetY=clamp(viewTargetY,1.1,3.8);
+    const ce=Math.cos(viewElevation), se=Math.sin(viewElevation);
+    camera.position.set(
+      Math.sin(viewAzimuth)*viewDistance*ce,
+      viewTargetY+Math.sin(viewElevation)*viewDistance,
+      Math.cos(viewAzimuth)*viewDistance*ce
+    );
+    camera.lookAt(0,viewTargetY,0);
+  }
+  function pointerPair(){return Array.from(viewPointers.values()).slice(0,2);}
+  canvas.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse' && e.button!==0)return;
+    viewPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+    if(viewPointers.size===1){
+      viewStart={x:e.clientX,y:e.clientY,az:viewAzimuth,el:viewElevation,dist:viewDistance,targetY:viewTargetY};
+    }else if(viewPointers.size===2){
+      const ps=pointerPair(), dx=ps[1].x-ps[0].x, dy=ps[1].y-ps[0].y;
+      pinchStart={distance:Math.hypot(dx,dy),midY:(ps[0].y+ps[1].y)*.5,baseDist:viewDistance,baseTargetY:viewTargetY};
+    }
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!viewPointers.has(e.pointerId))return;
+    viewPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const ps=pointerPair();
+    if(ps.length===1){
+      const p=ps[0];
+      const dx=p.x-viewStart.x, dy=p.y-viewStart.y;
+      viewAzimuth=viewStart.az-dx*.006;
+      viewElevation=viewStart.el-dy*.0045;
+      applyView();
+    }else if(ps.length===2 && pinchStart){
+      const dx=ps[1].x-ps[0].x, dy=ps[1].y-ps[0].y;
+      const dist=Math.max(20,Math.hypot(dx,dy));
+      viewDistance=pinchStart.baseDist*(pinchStart.distance/dist);
+      const midY=(ps[0].y+ps[1].y)*.5;
+      viewTargetY=pinchStart.baseTargetY-(midY-pinchStart.midY)*.006;
+      applyView();
+    }
+  });
+  function endViewPointer(e){
+    viewPointers.delete(e.pointerId);
+    if(viewPointers.size<2)pinchStart=null;
+    if(viewPointers.size===1){
+      const p=pointerPair()[0];
+      viewStart={x:p.x,y:p.y,az:viewAzimuth,el:viewElevation,dist:viewDistance,targetY:viewTargetY};
+    }
+  }
+  canvas.addEventListener('pointerup',endViewPointer);
+  canvas.addEventListener('pointercancel',endViewPointer);
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    viewDistance=clamp(viewDistance*(1+e.deltaY*.001),6.5,18);
+    applyView();
+  },{passive:false});
+
+  scene.add(new THREE.HemisphereLight(0xe3f4ff, 0x65758f, 1.25));
+  const keyLight = new THREE.DirectionalLight(0xf2f8ff, 1.8);
+  keyLight.position.set(-4.5, 10, 6); keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024,1024); keyLight.shadow.camera.left=-8; keyLight.shadow.camera.right=8;
+  keyLight.shadow.camera.top=9; keyLight.shadow.camera.bottom=-6; keyLight.shadow.bias=-0.0004;
+  scene.add(keyLight);
+  const rimLight = new THREE.PointLight(0xffb9dd, 13, 13); rimLight.position.set(2.6,4.5,-2.5); scene.add(rimLight);
+  const pinkLight = new THREE.PointLight(0xc9a9ff, 14, 9); pinkLight.position.set(-3,2.8,3); scene.add(pinkLight);
+
+  const mat = (color, roughness=.55, metalness=0, extra={}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+  const materials = {
+    frame: mat(0xf45b9a,.32,.10), frameLight: mat(0xffb3d5,.3,.08), dark: mat(0xd93683,.48,.04),
+    glass: new THREE.MeshPhysicalMaterial({ color:0xffd8ef, roughness:.16, metalness:.08, transparent:true, opacity:.105, depthWrite:false, side:THREE.DoubleSide }),
+    floor: mat(0x35476f,.48,.02), edge: mat(0x087f8c,.3,.05,{emissive:0x04545c,emissiveIntensity:.12}),
+    gold: mat(0xffc84e,.3,.16), claw: mat(0x9aa3ad,.38,.24), rubber: mat(0x59616d,.72,.01),
+    white: mat(0xffffff,.32,.02), pink: mat(0xff85bb,.3,.03,{emissive:0xa82d68,emissiveIntensity:.12}),
+  };
+  const standardSphere = new THREE.SphereGeometry(1, 20, 14);
+  function addMesh(parent, geometry, material, position, scale, cast=true, receive=true) {
+    const m = new THREE.Mesh(geometry, material);
+    if (position) m.position.set(position[0],position[1],position[2]);
+    if (scale) m.scale.set(scale[0],scale[1],scale[2]);
+    m.castShadow = cast; m.receiveShadow = receive; parent.add(m); return m;
+  }
+  function boxMesh(parent, size, material, position, options={}) {
+    return addMesh(parent, new THREE.BoxGeometry(size[0],size[1],size[2]), material, position, null, options.cast !== false, options.receive !== false);
+  }
+  function cylinderMesh(parent, rTop, rBottom, height, material, position, segments=16) {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rTop,rBottom,height,segments), material);
+    mesh.position.set(position[0],position[1],position[2]); mesh.castShadow=true; mesh.receiveShadow=true; parent.add(mesh); return mesh;
+  }
+
+  // Stage floor / ambient platform
+  // One small reusable tile texture, one ground mesh; no background cabinet meshes.
+  const tileCanvas=document.createElement('canvas');tileCanvas.width=512;tileCanvas.height=512;
+  const tileCtx=tileCanvas.getContext('2d');
+  const tileGradient=tileCtx.createLinearGradient(0,0,512,512);
+  tileGradient.addColorStop(0,'#7a7b9c');tileGradient.addColorStop(.48,'#525c7c');tileGradient.addColorStop(1,'#3d4969');
+  tileCtx.fillStyle=tileGradient;tileCtx.fillRect(0,0,512,512);
+  tileCtx.strokeStyle='#30394f';tileCtx.lineWidth=4;tileCtx.strokeRect(0,0,512,512);
+  tileCtx.strokeStyle='#aeb5cc';tileCtx.lineWidth=1;tileCtx.strokeRect(4,4,504,504);
+  const floorTexture=new THREE.CanvasTexture(tileCanvas);floorTexture.encoding=THREE.sRGBEncoding;
+  floorTexture.wrapS=floorTexture.wrapT=THREE.RepeatWrapping;floorTexture.repeat.set(14,14);
+  floorTexture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(28,28),new THREE.MeshStandardMaterial({map:floorTexture,roughness:.38,metalness:.22}));
+  ground.rotation.x=-Math.PI/2;ground.position.y=-1.55;ground.receiveShadow=true;scene.add(ground);
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(7.0,.32,5.8), mat(0xe8cde7,.4,.08));
+  platform.position.set(0,-1.25,0); platform.castShadow=true; platform.receiveShadow=true; scene.add(platform);
+  const platformTop = new THREE.Mesh(new THREE.BoxGeometry(6.7,.035,5.5), mat(0xb6b8d4,.38,.18));
+  platformTop.position.set(0,-1.07,0); scene.add(platformTop);
+  const cabinet = new THREE.Group(); scene.add(cabinet);
+  // Outer lower cabinet and dark trim
+  boxMesh(cabinet,[5.95,1.03,4.95],materials.dark,[0,-.56,0]);
+  boxMesh(cabinet,[5.98,.13,4.98],materials.frameLight,[0,-1.08,0]);
+  boxMesh(cabinet,[5.82,.08,4.82],materials.edge,[0,-1.005,0]);
+  // Front faceplate and illuminated strip
+  boxMesh(cabinet,[5.55,.52,.16],mat(0xeacbe7,.35,.08),[0,-.47,2.51]);
+  boxMesh(cabinet,[4.8,.035,.035],materials.pink,[0,-.31,2.605]);
+  boxMesh(cabinet,[5.2,.035,.035],materials.edge,[0,-.76,2.605]);
+  // ---------------------- Large, recessed prize chute ----------------------
+  // Shared dimensions drive both the rendered floor and the physics opening.
+  // The hole is intentionally generous, while the surrounding floor is built
+  // from three clean panels so there are no hidden floor pieces under it.
+  const playfieldMat = mat(0xe6def0,.72,.04);
+  const fieldLeft=-2.625, fieldRight=2.625, fieldBack=-2.10, fieldFront=2.10;
+  const chuteW=2.40, chuteD=1.75, chuteCenterX=1.35, chuteCenterZ=1.225;
+  const chuteLeft=chuteCenterX-chuteW/2, chuteRight=chuteCenterX+chuteW/2;
+  const chuteFront=chuteCenterZ+chuteD/2, chuteBack=chuteCenterZ-chuteD/2;
+  const floorY=-.05, floorT=.10;
+  // Rear panel, left panel, and right panel; all meet at exact shared edges.
+  boxMesh(cabinet,[fieldRight-fieldLeft,floorT,chuteBack-fieldBack],playfieldMat,[(fieldLeft+fieldRight)/2,floorY,(fieldBack+chuteBack)/2]);
+  boxMesh(cabinet,[chuteLeft-fieldLeft,floorT,chuteFront-chuteBack],playfieldMat,[(fieldLeft+chuteLeft)/2,floorY,(chuteBack+chuteFront)/2]);
+  boxMesh(cabinet,[fieldRight-chuteRight,floorT,chuteFront-chuteBack],playfieldMat,[(chuteRight+fieldRight)/2,floorY,(chuteBack+chuteFront)/2]);
+
+  // Fine grooves are clipped to the floor panels and never cross the opening.
+  const grooveMat = mat(0xb4a7c8,.6,.05,{transparent:true,opacity:.36});
+  for(let gx=-2;gx<=0;gx+=1) boxMesh(cabinet,[.012,.008,chuteBack-fieldBack-.08],grooveMat,[gx,.006,(fieldBack+chuteBack)/2],{cast:false,receive:false});
+  for(let gz=-1.5;gz<=0;gz+=.5) boxMesh(cabinet,[fieldRight-fieldLeft-.08,.008,.012],grooveMat,[0,.006,gz],{cast:false,receive:false});
+
+  // The well is intentionally hollow all the way down to the collection basket.
+  // Do not place decorative floor plates across the opening: they would visually
+  // block prizes while the physics simulation lets them fall through.
+  const chuteInsideMat = mat(0x59406a,.35,.08);
+
+  // Four-sided metallic rim; each side overlaps slightly at the corners.
+  const trimY=.055;
+  const rimMat = new THREE.MeshStandardMaterial({color:0xffd36f,roughness:.28,metalness:.16});
+  const rimGlow = mat(0x19b8c6,.30,.08,{transparent:true,opacity:.9});
+  const rimT=.095, rimOverlap=.06;
+  boxMesh(cabinet,[chuteW+rimOverlap*2,rimT,.12],rimMat,[chuteCenterX,trimY,chuteBack]);
+  boxMesh(cabinet,[chuteW+rimOverlap*2,rimT,.12],rimMat,[chuteCenterX,trimY,chuteFront]);
+  boxMesh(cabinet,[.12,rimT,chuteD],rimMat,[chuteLeft,trimY,chuteCenterZ]);
+  boxMesh(cabinet,[.12,rimT,chuteD],rimMat,[chuteRight,trimY,chuteCenterZ]);
+  boxMesh(cabinet,[chuteW,.018,.018],rimGlow,[chuteCenterX,trimY+.058,chuteBack],{cast:false,receive:false});
+  boxMesh(cabinet,[chuteW,.018,.018],rimGlow,[chuteCenterX,trimY+.058,chuteFront],{cast:false,receive:false});
+  boxMesh(cabinet,[.018,.018,chuteD],rimGlow,[chuteLeft,trimY+.058,chuteCenterZ],{cast:false,receive:false});
+  boxMesh(cabinet,[.018,.018,chuteD],rimGlow,[chuteRight,trimY+.058,chuteCenterZ],{cast:false,receive:false});
+
+  // Continuous transparent shield panels: full-height geometry, joined corners.
+  // The top remains open, and the clear aperture is wider/deeper for large prizes.
+  const shieldMat=new THREE.MeshPhysicalMaterial({
+    color:0x73d8e7,roughness:.12,metalness:.01,transparent:true,opacity:.22,
+    depthWrite:false,side:THREE.DoubleSide
+  });
+  const shieldH=.82, shieldBottom=-.02, shieldT=.055;
+  const shieldY=shieldBottom+shieldH/2;
+  boxMesh(cabinet,[shieldT,shieldH,chuteD+shieldT*2],shieldMat,[chuteLeft,shieldY,chuteCenterZ],{cast:false,receive:false});
+  boxMesh(cabinet,[shieldT,shieldH,chuteD+shieldT*2],shieldMat,[chuteRight,shieldY,chuteCenterZ],{cast:false,receive:false});
+  boxMesh(cabinet,[chuteW,shieldH,shieldT],shieldMat,[chuteCenterX,shieldY,chuteBack],{cast:false,receive:false});
+  boxMesh(cabinet,[chuteW,shieldH,shieldT],shieldMat,[chuteCenterX,shieldY,chuteFront],{cast:false,receive:false});
+  // Cabinet corner posts and upper frame rails
+  for (const x of [-2.82,2.82]) for (const z of [-2.27,2.27]) {
+    boxMesh(cabinet,[.14,6.05,.14],materials.frameLight,[x,2.95,z]);
+    cylinderMesh(cabinet,.105,.105,.12,materials.edge,[x,5.98,z],12);
+  }
+  boxMesh(cabinet,[5.75,.16,.16],materials.frameLight,[0,5.98,-2.27]);
+  boxMesh(cabinet,[5.75,.16,.16],materials.frameLight,[0,5.98,2.27]);
+  boxMesh(cabinet,[.16,.16,4.5],materials.frameLight,[-2.82,5.98,0]);
+  boxMesh(cabinet,[.16,.16,4.5],materials.frameLight,[2.82,5.98,0]);
+  // Glass panes; transparent and placed on the outside of the play area.
+  const sideGlass = new THREE.Mesh(new THREE.BoxGeometry(.035,5.75,4.42),materials.glass);
+  sideGlass.position.set(-2.72,2.93,0); sideGlass.renderOrder=3; cabinet.add(sideGlass);
+  const sideGlass2 = sideGlass.clone(); sideGlass2.position.x=2.72; cabinet.add(sideGlass2);
+  const backGlass = new THREE.Mesh(new THREE.BoxGeometry(5.42,5.75,.025),materials.glass);
+  backGlass.position.set(0,2.93,-2.21); backGlass.renderOrder=3; cabinet.add(backGlass);
+  const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(5.42,5.75,.025),materials.glass);
+  frontGlass.position.set(0,2.93,2.2); frontGlass.renderOrder=4; cabinet.add(frontGlass);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(5.45,.035,4.35),new THREE.MeshStandardMaterial({color:0xd8c5f4,roughness:.32,metalness:.08,transparent:true,opacity:.82}));
+  roof.position.set(0,5.83,0); cabinet.add(roof);
+  // Decorative top canopy
+  boxMesh(cabinet,[5.9,.26,4.95],materials.frame,[0,6.15,0]);
+  boxMesh(cabinet,[4.3,.025,.035],materials.edge,[0,6.018,2.49]);
+  // Chute walls and collection basket below the hole
+  const chuteMat = mat(0x9b78b8,.38,.08);
+  const basketVisualW=chuteW+.24, basketVisualD=chuteD+.24;
+  boxMesh(cabinet,[basketVisualW,.1,basketVisualD],chuteMat,[chuteCenterX,-1.02,chuteCenterZ]);
+  boxMesh(cabinet,[.08,.96,basketVisualD],materials.frameLight,[chuteCenterX-basketVisualW/2,-.54,chuteCenterZ]);
+  boxMesh(cabinet,[.08,.96,basketVisualD],materials.frameLight,[chuteCenterX+basketVisualW/2,-.54,chuteCenterZ]);
+  boxMesh(cabinet,[basketVisualW,.96,.08],materials.frameLight,[chuteCenterX,-.54,chuteCenterZ-basketVisualD/2]);
+  boxMesh(cabinet,[basketVisualW,.96,.08],materials.frameLight,[chuteCenterX,-.54,chuteCenterZ+basketVisualD/2]);
+  // Lighted sign on front fascia
+  const signGroup = new THREE.Group(); signGroup.position.set(0,-.48,2.61); cabinet.add(signGroup);
+  boxMesh(signGroup,[1.92,.31,.045],mat(0x684777,.32,.05),[0,0,0]);
+  const led = new THREE.Mesh(new THREE.BoxGeometry(1.4,.012,.01),materials.edge); led.position.set(0,-.115,.03); signGroup.add(led);
+
+  // Overhead rails and the moving trolley, visible above the claw cable
+  const railZ = new THREE.Mesh(new THREE.BoxGeometry(.11,.09,4.48),materials.claw); railZ.position.set(-.1,5.70,0); cabinet.add(railZ);
+  const railX = new THREE.Mesh(new THREE.BoxGeometry(5.25,.09,.11),materials.claw); railX.position.set(0,5.70,-.15); cabinet.add(railX);
+  const trolley = new THREE.Group(); cabinet.add(trolley);
+  boxMesh(trolley,[.72,.22,.64],materials.frameLight,[0,5.52,0]);
+  boxMesh(trolley,[.5,.07,.44],materials.claw,[0,5.38,0]);
+  for (const x of [-.26,.26]) for (const z of [-.22,.22]) cylinderMesh(trolley,.07,.07,.05,materials.gold,[x,5.68,z],12);
+  const cable = cylinderMesh(cabinet,.034,.034,1,materials.claw,[0,4,0],10);
+  const hub = new THREE.Group(); hub.scale.setScalar(1.15); cabinet.add(hub);
+  const hubBody = cylinderMesh(hub,.27,.23,.18,materials.dark,[0,0,0],24);
+  const hubRing = cylinderMesh(hub,.29,.29,.055,materials.gold,[0,-.06,0],24);
+  const hubLower = cylinderMesh(hub,.15,.19,.15,materials.frameLight,[0,-.15,0],18);
+  cylinderMesh(hub,.095,.095,.08,materials.edge,[0,-.24,0],16);
+
+  // ---------------------- Cannon.js rigid-body simulation ----------------------
+  const world = new CANNON.World();
+  world.gravity.set(0,-9.82,0);
+  world.broadphase = new CANNON.NaiveBroadphase();
+  world.solver.iterations = 18;
+  world.solver.tolerance = 0.0005;
+  world.defaultContactMaterial.friction = .78;
+  world.defaultContactMaterial.restitution = .025;
+  const floorPhysicsMat = new CANNON.Material('floor');
+  const plushPhysicsMat = new CANNON.Material('plush');
+  const metalPhysicsMat = new CANNON.Material('metal');
+  world.addContactMaterial(new CANNON.ContactMaterial(floorPhysicsMat,plushPhysicsMat,{friction:.92,restitution:.025,contactEquationStiffness:1.5e7,contactEquationRelaxation:3}));
+  world.addContactMaterial(new CANNON.ContactMaterial(plushPhysicsMat,plushPhysicsMat,{friction:.82,restitution:.035,contactEquationStiffness:1.2e7,contactEquationRelaxation:3}));
+  world.addContactMaterial(new CANNON.ContactMaterial(metalPhysicsMat,plushPhysicsMat,{friction:.95,restitution:.015,contactEquationStiffness:1.5e7,contactEquationRelaxation:3}));
+  const staticBodies = [];
+  function physicsBox(position, half, material=floorPhysicsMat) {
+    const b = new CANNON.Body({mass:0, material});
+    b.addShape(new CANNON.Box(new CANNON.Vec3(half[0],half[1],half[2])));
+    b.position.set(position[0],position[1],position[2]); world.addBody(b); staticBodies.push(b); return b;
+  }
+  // Raised playing floor: mirror the three visible panels exactly, leaving
+  // the enlarged prize aperture fully open in both rendering and simulation.
+  physicsBox([0,-.10,(fieldBack+chuteBack)/2],[(fieldRight-fieldLeft)/2,.10,(chuteBack-fieldBack)/2]);
+  physicsBox([(fieldLeft+chuteLeft)/2,-.10,(chuteBack+chuteFront)/2],[(chuteLeft-fieldLeft)/2,.10,(chuteFront-chuteBack)/2]);
+  physicsBox([(chuteRight+fieldRight)/2,-.10,(chuteBack+chuteFront)/2],[(fieldRight-chuteRight)/2,.10,(chuteFront-chuteBack)/2]);
+  // Cabinet walls / playfield boundary.
+  physicsBox([-2.63,2.65,0],[.08,2.65,2.16]);
+  physicsBox([2.63,2.65,0],[.08,2.65,2.16]);
+  physicsBox([0,2.65,-2.13],[2.56,2.65,.08]);
+  physicsBox([0,2.65,2.13],[2.56,2.65,.08]);
+
+  // Collection basket is below the opening; no collision surface spans the hole.
+  const basketCenterX=chuteCenterX, basketCenterZ=chuteCenterZ;
+  const basketHalfW=chuteW/2+.12, basketHalfD=chuteD/2+.12;
+  physicsBox([basketCenterX,-1.02,basketCenterZ],[basketHalfW,.05,basketHalfD]);
+  physicsBox([basketCenterX-basketHalfW,-.54,basketCenterZ],[.04,.48,basketHalfD]);
+  physicsBox([basketCenterX+basketHalfW,-.54,basketCenterZ],[.04,.48,basketHalfD]);
+  physicsBox([basketCenterX,-.54,basketCenterZ-basketHalfD],[basketHalfW,.48,.04]);
+  physicsBox([basketCenterX,-.54,basketCenterZ+basketHalfD],[basketHalfW,.48,.04]);
+
+  // Shield collision panels share the exact footprint and full height of the
+  // rendered acrylic. Small corner overlaps prevent gaps in the barrier.
+  const shieldPhysicsY=shieldBottom+shieldH/2, shieldPhysicsHalfH=shieldH/2, shieldPhysicsT=shieldT/2;
+  physicsBox([chuteLeft,shieldPhysicsY,chuteCenterZ],[shieldPhysicsT,shieldPhysicsHalfH,chuteD/2+shieldPhysicsT]);
+  physicsBox([chuteRight,shieldPhysicsY,chuteCenterZ],[shieldPhysicsT,shieldPhysicsHalfH,chuteD/2+shieldPhysicsT]);
+  physicsBox([chuteCenterX,shieldPhysicsY,chuteBack],[chuteW/2,shieldPhysicsHalfH,shieldPhysicsT]);
+  physicsBox([chuteCenterX,shieldPhysicsY,chuteFront],[chuteW/2,shieldPhysicsHalfH,shieldPhysicsT]);
+
+  const prizeDefs = [
+    // Fixed assortment; continuing preserves each prize's position.
+    {type:'bear',name:'おおきなくま',color:0x8b4513,belly:0xd2a679,x:0.08,z:0.10,rot:-.08,scale:1.55},
+    {type:'bunny',name:'いちごミルクうさぎ',color:0xffdbe9,belly:0xfff8f3,x:-1.40,z:-1.12,rot:.14,scale:1.45},
+    {type:'dog',name:'たれみみのポチ',color:0xecc28e,belly:0xfff5da,x:1.45,z:-1.12,rot:-.16,scale:1.45},
+    {type:'sprite',name:'おほしさまのモコ',color:0xb9a4ef,belly:0xffefbc,x:-1.45,z:1.00,rot:.12,scale:1.45},
+  ];
+  const prizeScale = (def) => def.scale || 1;
+  const initialPrizeY = (def) => .44 * prizeScale(def) + .02;
+  const prizes = [];
+  function makeToyMesh(def) {
+    const group = new THREE.Group();
+    const fur = mat(def.color,.92,.0);
+    const bellyMat = mat(def.belly,.95,.0);
+    const inner = mat(def.type==='bunny'?0xff8eb8:(def.type==='cat'?0x657a99:0x69340f),.95,0);
+    const dark = mat(0x202334,.5,0);
+    const shine = mat(0xffffff,.25,0);
+    // Main plush silhouette, matching the compound collision approximations below.
+    addMesh(group,standardSphere,fur,[0,0,0],[.255,.315,.205]);
+    addMesh(group,standardSphere,bellyMat,[0,-.025,.175],[.155,.205,.045],false,false);
+    addMesh(group,standardSphere,fur,[0,.37,0],[.218,.22,.195]);
+    // Ears: bunny ears are taller and lean slightly outward.
+    if (def.type==='bunny') {
+      const e1=addMesh(group,standardSphere,fur,[-.125,.595,0],[.07,.20,.074]); e1.rotation.z=-.13;
+      const e2=addMesh(group,standardSphere,fur,[.125,.595,0],[.07,.20,.074]); e2.rotation.z=.13;
+      const i1=addMesh(group,standardSphere,inner,[-.125,.598,.061],[.033,.13,.016]); i1.rotation.z=-.13;
+      const i2=addMesh(group,standardSphere,inner,[.125,.598,.061],[.033,.13,.016]); i2.rotation.z=.13;
+    } else if(def.type==='dog'){
+      const earMat=mat(0x986444,.95,0);
+      for(const sign of [-1,1]){
+        const ear=addMesh(group,standardSphere,earMat,[sign*.23,.36,-.015],[.092,.205,.085]);ear.rotation.z=sign*.18;
+      }
+      addMesh(group,standardSphere,bellyMat,[0,.315,.18],[.105,.065,.055]);
+      addMesh(group,standardSphere,mat(0xf297ac,.9),[0,.273,.215],[.025,.042,.012]);
+    } else if(def.type==='sprite'){
+      for(const sign of [-1,1]){
+        addMesh(group,standardSphere,fur,[sign*.19,.53,0],[.10,.11,.085]);
+      }
+      const star=new THREE.Shape();
+      for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.045:.10;const x=Math.cos(a)*r,y=Math.sin(a)*r;if(i===0)star.moveTo(x,y);else star.lineTo(x,y);}star.closePath();
+      const badge=new THREE.Mesh(new THREE.ShapeGeometry(star),mat(0xffd76c,.55));badge.position.set(0,.57,.17);group.add(badge);
+      addMesh(group,standardSphere,shine,[0,-.02,.218],[.046,.055,.012]);
+    } else if (def.type==='cat') {
+      const earGeo = new THREE.ConeGeometry(.105,.22,3);
+      const e1 = addMesh(group,earGeo,fur,[-.145,.555,0],[1,1,1]); e1.rotation.z=-.16; e1.rotation.x=-.08;
+      const e2 = addMesh(group,earGeo,fur,[.145,.555,0],[1,1,1]); e2.rotation.z=.16; e2.rotation.x=-.08;
+      addMesh(group,standardSphere,inner,[-.145,.557,.045],[.038,.08,.022],false,false);
+      addMesh(group,standardSphere,inner,[.145,.557,.045],[.038,.08,.022],false,false);
+    } else {
+      addMesh(group,standardSphere,fur,[-.145,.54,0],[.09,.095,.08]);
+      addMesh(group,standardSphere,fur,[.145,.54,0],[.09,.095,.08]);
+    }
+    // Paws and feet
+    addMesh(group,standardSphere,fur,[-.295,.055,0],[.12,.145,.12]);
+    addMesh(group,standardSphere,fur,[.295,.055,0],[.12,.145,.12]);
+    addMesh(group,standardSphere,fur,[-.135,-.275,.035],[.135,.145,.145]);
+    addMesh(group,standardSphere,fur,[.135,-.275,.035],[.135,.145,.145]);
+    // Face points toward the front glass (+Z)
+    addMesh(group,standardSphere,dark,[-.075,.403,.174],[.026,.032,.018],false,false);
+    addMesh(group,standardSphere,dark,[.075,.403,.174],[.026,.032,.018],false,false);
+    addMesh(group,standardSphere,shine,[-.082,.416,.19],[.008,.009,.006],false,false);
+    addMesh(group,standardSphere,shine,[.068,.416,.19],[.008,.009,.006],false,false);
+    addMesh(group,standardSphere,inner,[0,.355,.195],[.032,.024,.022],false,false);
+    // Tiny blush patches
+    addMesh(group,standardSphere,mat(0xffb2c8,.95),[-.13,.35,.164],[.032,.017,.01],false,false);
+    addMesh(group,standardSphere,mat(0xffb2c8,.95),[.13,.35,.164],[.032,.017,.01],false,false);
+    return group;
+  }
+  function createPrize(def, index) {
+    const s = prizeScale(def);
+    const body = new CANNON.Body({ mass:1.45, material:plushPhysicsMat, linearDamping:.34, angularDamping:.46 });
+    // The collision envelope deliberately follows the rendered silhouette.
+    // Do NOT use one large hidden sphere: the bear is a soft, wide plush, so
+    // the torso is approximated by overlapping spheres whose outer surface
+    // tracks the visible body at the center, shoulders and lower body.
+    // This keeps the claw from passing through visible fur while still giving
+    // Cannon.js a stable convex compound made only from primitive shapes.
+    body.addShape(new CANNON.Sphere(.205*s),new CANNON.Vec3(0,-.02*s,0));
+    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(-.105*s,.015*s,0));
+    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(.105*s,.015*s,0));
+    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(0,-.17*s,0));
+    body.addShape(new CANNON.Sphere(.145*s),new CANNON.Vec3(0,.155*s,0));
+    // Head: the rendered head is a separate flattened sphere.
+    body.addShape(new CANNON.Sphere(.215*s),new CANNON.Vec3(0,.355*s,0));
+    // Small neck/transition region so the gap between torso and head is not
+    // an artificial hole in the collision silhouette.
+    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(0,.245*s,0));
+    // Ears and limbs follow the visible mesh positions.
+    for(const sign of [-1,1]){
+      if(def.type==='bunny'){
+        for(const y of [.49,.57,.65,.72])body.addShape(new CANNON.Sphere(.072*s),new CANNON.Vec3(sign*(.125+(y-.595)*.13)*s,y*s,0));
+      }else if(def.type==='dog'){
+        for(const y of [.24,.34,.44])body.addShape(new CANNON.Sphere(.09*s),new CANNON.Vec3(sign*.23*s,y*s,-.015*s));
+      }else{
+        body.addShape(new CANNON.Sphere((def.type==='sprite'?.10:.09)*s),new CANNON.Vec3(sign*(def.type==='sprite'?.19:.145)*s,.54*s,0));
+      }
+    }
+    body.addShape(new CANNON.Sphere(.12*s),new CANNON.Vec3(-.295*s,.055*s,0));
+    body.addShape(new CANNON.Sphere(.12*s),new CANNON.Vec3(.295*s,.055*s,0));
+    body.addShape(new CANNON.Sphere(.145*s),new CANNON.Vec3(-.135*s,-.275*s,.035*s));
+    body.addShape(new CANNON.Sphere(.145*s),new CANNON.Vec3(.135*s,-.275*s,.035*s));
+    // Default collision group/mask intentionally includes static cabinet surfaces
+    // and the kinematic claw layer (group 2), so every gameplay surface participates.
+    body.collisionFilterGroup=1;
+    body.collisionFilterMask=-1;
+    body.collisionResponse=true;
+    body.position.set(def.x,initialPrizeY(def),def.z);
+    body.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),def.rot);
+    body.angularVelocity.set(0,0,0);
+    body.velocity.set(0,0,0);
+    world.addBody(body);
+    const mesh = makeToyMesh(def); mesh.scale.setScalar(s); mesh.position.set(def.x,initialPrizeY(def),def.z); mesh.rotation.y=def.rot; scene.add(mesh);
+    const obj={body,mesh,def,index,won:false,hidden:false}; prizes.push(obj); return obj;
+  }
+  let selectedPrizeIndex=0;
+  function selectedPrizeDefinition(index){return {...prizeDefs[index],x:.08,z:.10};}
+  createPrize(selectedPrizeDefinition(selectedPrizeIndex),0);
+
+  // Each claw is ONE rigid L-shaped piece. The only moving joint is the root.
+  // The entire L rotates around a tangential hinge axis; it never bends at the elbow.
+  // This matches the reference: three identical L plates fan around the center and
+  // their root rotation opens/closes the cradle.
+  const fingerUnits=[];
+  const fingerMeshes=[];
+  let physicsFrame=0;
+  const clawContactFrame=new WeakMap();
+  const clawContactUntil=new WeakMap();
+  // Track actual Cannon.js contact pairs, rather than relying on a proximity
+  // test. This makes a claw physically touching the plush a real state in the
+  // simulation, even when the contact lasts only one solver step.
+  const activeClawContacts=new Set();
+  function isClawBody(b){ return fingerUnits.some(f=>f.body===b); }
+  function markClawContact(a,b){
+    const claw=isClawBody(a)?a:(isClawBody(b)?b:null);
+    const other=claw===a?b:a;
+    if(!claw || !other || other.material!==plushPhysicsMat) return;
+    activeClawContacts.add(claw);
+    clawContactFrame.set(claw,physicsFrame);
+    clawContactUntil.set(claw,physicsFrame+10);
+  }
+  function unmarkClawContact(a,b){
+    const claw=isClawBody(a)?a:(isClawBody(b)?b:null);
+    if(claw) activeClawContacts.delete(claw);
+  }
+  world.addEventListener('beginContact',e=>markClawContact(e.bodyA,e.bodyB));
+  world.addEventListener('endContact',e=>unmarkClawContact(e.bodyA,e.bodyB));
+  function makeLClaw() {
+    const body = new CANNON.Body({mass:0,type:CANNON.Body.KINEMATIC,material:metalPhysicsMat});
+
+    // Simple two-piece L-shaped claw. The claw is rigid; only the root hinge
+    // moves. Keeping exactly two polygonal pieces makes the silhouette clean
+    // while preserving the established root rotation and opening motion.
+    const longLen=1.00*1.2;
+    const shortLen=.50*1.2;
+    const w=.090*1.2;
+    const d=.080*1.2;
+
+    // Long vertical piece: from the root straight downward.
+    const shape1=new CANNON.Box(new CANNON.Vec3(w*.5,longLen*.5,d*.5));
+    body.addShape(shape1,new CANNON.Vec3(0,-longLen*.5,0));
+
+    // Short horizontal piece: turns inward at the bottom of the long piece.
+    const shape2=new CANNON.Box(new CANNON.Vec3(shortLen*.5,w*.5,d*.5));
+    body.addShape(shape2,new CANNON.Vec3(-shortLen*.5,-longLen,0));
+
+    // Explicitly pair the claw's collision layer with dynamic plush bodies.
+    // The claw is kinematic, but it must still participate in contacts with the
+    // dynamic prize so the linkage can physically stall against the plush.
+    body.collisionFilterGroup=2;
+    body.collisionFilterMask=1;
+    body.collisionResponse=true;
+    body.type=CANNON.Body.KINEMATIC;
+    body.mass=0;
+    body.updateMassProperties();
+    body.addEventListener('collide',e=>{
+      if(e.body && e.body.mass>0 && e.body.material===plushPhysicsMat){
+        // Keep a short contact latch. A kinematic body can move across a small
+        // plush surface between solver steps; requiring one exact frame made
+        // legitimate contacts look like they never happened.
+        activeClawContacts.add(body);
+        clawContactFrame.set(body,physicsFrame);
+        clawContactUntil.set(body,physicsFrame+8);
+      }
+    });
+    world.addBody(body);
+
+    const group=new THREE.Group();
+    const clawVisual = new THREE.MeshStandardMaterial({
+      color:0x858d98, roughness:.34, metalness:.22,
+      transparent:false, opacity:1,
+      side:THREE.DoubleSide
+    });
+
+    // Exactly two visible polygonal pieces forming one L-shaped arm.
+    const seg1=new THREE.Mesh(new THREE.BoxGeometry(w,longLen,d),clawVisual);
+    seg1.position.set(0,-longLen*.5,0);
+    seg1.castShadow=true;
+    seg1.receiveShadow=true;
+    group.add(seg1);
+
+    const seg2=new THREE.Mesh(new THREE.BoxGeometry(shortLen,w,d),clawVisual);
+    seg2.position.set(-shortLen*.5,-longLen,0);
+    seg2.castShadow=true;
+    seg2.receiveShadow=true;
+    group.add(seg2);
+
+    const cuff=new THREE.Mesh(
+      new THREE.CylinderGeometry(.055,.055,.08,16),
+      materials.dark
+    );
+    cuff.rotation.z=Math.PI/2;
+    cuff.position.set(0,0,0);
+    group.add(cuff);
+
+    cabinet.add(group);
+
+    const unit={
+      body,mesh:group,cuff,
+      rootLocal:{x:0,y:0,z:0},
+      toeLocal:{x:-shortLen,y:-longLen,z:0},
+      sideLocal:{x:0,y:-longLen,z:0},
+      initialized:false
+    };
+    fingerUnits.push(unit);
+    fingerMeshes.push(group);
+    return unit;
+  }
+  for(let i=0;i<3;i++) makeLClaw();
+
+  function setLClaw(unit, root, radialAngle, openAmount, dt){
+    // The L itself is rigid. Only its root hinge rotates.
+    // Positive radial direction = outward. Closing rotates the whole L so the
+    // short inward-facing toe moves toward the center and creates a cradle.
+    const openAngle=1.10;
+    const closedAngle=0.46;
+    const hingeAngle=openAngle+(closedAngle-openAngle)*openAmount;
+    const target=new CANNON.Vec3(root.x,root.y,root.z);
+
+    if(!unit.initialized){
+      unit.body.position.copy(target);
+      unit.body.velocity.set(0,0,0);
+      unit.initialized=true;
+    } else {
+      const vel=target.vsub(unit.body.position), safeDt=Math.max(dt,1/120);
+      unit.body.velocity.set(vel.x/safeDt,vel.y/safeDt,vel.z/safeDt);
+      const speed=unit.body.velocity.length();
+      if(speed>5.5) unit.body.velocity.scale(5.5/speed,unit.body.velocity);
+    }
+
+    // First rotate the rigid L around its local tangential hinge, then place
+    // that hinge plane at the finger's 120-degree radial position.
+    const qHinge=new CANNON.Quaternion();
+    qHinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),hingeAngle);
+    const qRad=new CANNON.Quaternion();
+    qRad.setFromAxisAngle(new CANNON.Vec3(0,1,0),radialAngle);
+    const angularSpeed=unit.previousHinge===undefined?0:(hingeAngle-unit.previousHinge)/Math.max(dt,1/120);
+    unit.previousHinge=hingeAngle;
+    const hingeAxis=new CANNON.Vec3();
+    qRad.vmult(new CANNON.Vec3(0,0,1),hingeAxis);
+    unit.body.angularVelocity.set(hingeAxis.x*angularSpeed,hingeAxis.y*angularSpeed,hingeAxis.z*angularSpeed);
+    qRad.mult(qHinge,unit.body.quaternion);
+
+    unit.body.aabbNeedsUpdate=true;
+    unit.mesh.position.set(root.x,root.y,root.z);
+    unit.mesh.quaternion.set(unit.body.quaternion.x,unit.body.quaternion.y,unit.body.quaternion.z,unit.body.quaternion.w);
+    unit.cuff.position.set(root.x,root.y,root.z);
+    unit.cuff.visible=false;
+  }
+
+  // 0 = fully open, 1 = fully closed. Keep the claw open whenever it is initialized/reset.
+  const DEFAULT_CLAW_OPEN = 0;
+  const HOME_X=-2.05, HOME_Z=1.38; // left-front starting position
+  const machine = {x:HOME_X, z:HOME_Z, y:5.20, close:DEFAULT_CLAW_OPEN};
+  // Each finger has its own physical closure limit. A plush collision can
+  // stop one finger while the other two continue closing.
+  const fingerClose=[0,0,0];
+  const fingerContactLimit=[null,null,null];
+  const fingerBlocked=[false,false,false];
+  const fingerHadRealContact=[false,false,false];
+  // Gap-resume logic is enabled only from the grab phase until the ceiling.
+  const fingerGapResumeEnabled={value:false};
+  const ceilingControl={active:false,releasing:false,elapsed:0,ticks:0,targets:[0,0,0]};
+  const clawServo = { value:0, velocity:0, target:0 };
+  const homeY=5.20;
+  const clawMinY=1.45;
+  const clawSpring = { stiffness:58, damping:11 };
+  function setClawTarget(target){ clawServo.target=clamp(target,0,1); }
+  function updateClawSpring(dt){
+    const error=clawServo.target-clawServo.value;
+    const accel=error*clawSpring.stiffness-clawServo.velocity*clawSpring.damping;
+    clawServo.velocity += accel*dt;
+    clawServo.velocity = clamp(clawServo.velocity,-3.2,3.2);
+    clawServo.value = clamp(clawServo.value+clawServo.velocity*dt,0,1);
+    machine.close=clawServo.value;
+  }
+  function plushSphereContactsFinger(fingerIndex, openAmount){
+    const candidates=prizes.filter(p=>!p.won);
+    if(!candidates.length) return false;
+    const unit=fingerUnits[fingerIndex];
+    const a=(Math.PI*2*fingerIndex/3)+Math.PI/6;
+    const openAngle=1.10, closedAngle=0.46;
+    const hingeAngle=openAngle+(closedAngle-openAngle)*openAmount;
+    const qHinge=new CANNON.Quaternion();
+    qHinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),hingeAngle);
+    const qRad=new CANNON.Quaternion();
+    qRad.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
+    const q=new CANNON.Quaternion();
+    qRad.mult(qHinge,q);
+    const root=new CANNON.Vec3(machine.x,machine.y-.12,machine.z);
+    const longLen=1.00*1.2, shortLen=.50*1.2;
+    const samples=[];
+    // Sample both rigid L segments. This is only a contact probe: Cannon.js
+    // remains responsible for the actual collision response and forces.
+    for(let k=0;k<=12;k++){
+      const t=k/12;
+      samples.push(new CANNON.Vec3(0,-longLen*t,0));
+    }
+    for(let k=0;k<=8;k++){
+      const t=k/8;
+      samples.push(new CANNON.Vec3(-shortLen*t,-longLen,0));
+    }
+    const worldPoint=new CANNON.Vec3();
+    for(const local of samples){
+      q.vmult(local,worldPoint);
+      worldPoint.vadd(root,worldPoint);
+      for(const prize of candidates){
+      const body=prize.body;
+      for(let j=0;j<body.shapes.length;j++){
+        const shape=body.shapes[j];
+        if(!(shape instanceof CANNON.Sphere)) continue;
+        const off=body.shapeOffsets[j];
+        const center=body.shapeOrientations[j] ? new CANNON.Vec3() : null;
+        const wc=new CANNON.Vec3();
+        body.quaternion.vmult(off,wc);
+        wc.vadd(body.position,wc);
+        const r=shape.radius + .012;
+        if(worldPoint.distanceTo(wc)<=r) return true;
+      }
+      }
+    }
+    return false;
+  }
+
+  function findFirstContactClosure(fingerIndex){
+    if(!prizes.some(p=>!p.won)) return null;
+    if(!plushSphereContactsFinger(fingerIndex,machine.close)) return null;
+    let lo=0, hi=machine.close;
+    for(let n=0;n<8;n++){
+      const mid=(lo+hi)*.5;
+      if(plushSphereContactsFinger(fingerIndex,mid)) hi=mid;
+      else lo=mid;
+    }
+    return clamp(hi+.025,0,1);
+  }
+
+  function updateClawGeometry(dt) {
+    trolley.position.set(machine.x,0,machine.z);
+    hub.position.set(machine.x,machine.y,machine.z);
+    // Cable length extends from the trolley to the moving claw head.
+    const cableTop=5.41; const cableBottom=machine.y+.17;
+    const cableLength=Math.max(.12,cableTop-cableBottom);
+    cable.position.set(machine.x,(cableTop+cableBottom)/2,machine.z); cable.scale.set(1,cableLength,1);
+    hub.rotation.y=machine.x*.045;
+    // Three independent L-shaped fingers. Each finger pivots only at its root.
+    // The L itself stays rigid, so no fake mid-joint can separate during return/lift.
+    for(let i=0;i<3;i++){
+      const a=(Math.PI*2*i/3)+Math.PI/6;
+      const root={x:machine.x,y:machine.y-.12,z:machine.z};
+      // Once the toe meets the plush, this finger can only advance a tiny
+      // amount farther. The kinematic claw then behaves like a real linkage
+      // pushing into a soft toy instead of passing straight through it.
+      // Detect contact before moving the kinematic claw through the plush.
+      // The probe follows the actual L geometry and the existing plush collision
+      // spheres, so a finger cannot silently pass through a visible part.
+      if(ceilingControl.active){
+        fingerClose[i]=approach(fingerClose[i],ceilingControl.targets[i],.45*dt);
+        fingerBlocked[i]=false;
+      } else if(ceilingControl.releasing){
+        fingerClose[i]=approach(fingerClose[i],0,.8*dt);
+      } else if(fingerGapResumeEnabled.value){
+        if(fingerContactLimit[i]===null){
+          const first=findFirstContactClosure(i);
+          if(first!==null) fingerContactLimit[i]=first;
+        }
+        if(fingerContactLimit[i]!==null){
+          fingerClose[i]=Math.min(machine.close,fingerContactLimit[i]);
+          fingerBlocked[i]=machine.close>=fingerContactLimit[i]-.0005;
+        } else {
+          fingerClose[i]=machine.close;
+          fingerBlocked[i]=false;
+        }
+      } else {
+        fingerClose[i]=machine.close;
+        fingerBlocked[i]=false;
+      }
+      setLClaw(fingerUnits[i],root,a,fingerClose[i],dt);
+    }
+  }
+  updateClawGeometry(1/60);
+
+  // Elastic grip: once a real contact is established, the prize is held by
+  // spring forces rather than being hard-attached to the claw. This allows a
+  // little swing/slip while preventing the claw from simply passing through it.
+  let gripContacts=[];
+  const gripByPrize=new Map();
+  function clearGrip(){gripContacts=[];gripByPrize.clear();}
+  function touchingPrize(finger,p){
+    return world.contacts.some(c=>c.enabled!==false && ((c.bi===finger && c.bj===p.body)||(c.bj===finger && c.bi===p.body)));
+  }
+  function segmentPointDistance(point,a,b){
+    const ab=new CANNON.Vec3(b.x-a.x,b.y-a.y,b.z-a.z);
+    const ap=new CANNON.Vec3(point.x-a.x,point.y-a.y,point.z-a.z);
+    const denom=Math.max(1e-8,ab.lengthSquared());
+    const t=clamp(ap.dot(ab)/denom,0,1);
+    return {x:a.x+ab.x*t,y:a.y+ab.y*t,z:a.z+ab.z*t,t};
+  }
+  function currentClawPoints(){
+    const pts=[];
+    const toeReach=1.00*1.2, inward=.50*1.2;
+    for(let i=0;i<3;i++){
+      const a=(Math.PI*2*i/3)+Math.PI/6;
+      const openAngle=1.10, closedAngle=0.46;
+      const hingeAngle=openAngle+(closedAngle-openAngle)*fingerClose[i];
+      const qRad=new CANNON.Quaternion(); qRad.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
+      const qHinge=new CANNON.Quaternion(); qHinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),hingeAngle);
+      qRad.mult(qHinge,qHinge);
+      const p=new CANNON.Vec3(-inward,-toeReach,0);
+      qHinge.vmult(p,p);
+      pts.push({x:machine.x+p.x,y:machine.y-.12+p.y,z:machine.z+p.z});
+    }
+    return pts;
+  }
+
+  // Exact sphere-to-oriented-box surface clearance for both rigid L pieces.
+  function fingerPrizeDistance(i,onlyPrize=null){
+    const finger=fingerUnits[i].body;
+    let gap=Infinity;
+    for(const prize of prizes){
+      if(prize.won || (onlyPrize && prize!==onlyPrize)) continue;
+      const body=prize.body;
+      for(let j=0;j<body.shapes.length;j++){
+        const sphere=body.shapes[j];
+        if(!(sphere instanceof CANNON.Sphere)) continue;
+        const center=new CANNON.Vec3();
+        body.pointToWorldFrame(body.shapeOffsets[j],center);
+        const local=new CANNON.Vec3();
+        finger.pointToLocalFrame(center,local);
+        for(let k=0;k<finger.shapes.length;k++){
+          const box=finger.shapes[k];
+          if(!(box instanceof CANNON.Box)) continue;
+          const relative=local.vsub(finger.shapeOffsets[k]);
+          const inverse=new CANNON.Quaternion();
+          finger.shapeOrientations[k].inverse(inverse);
+          inverse.vmult(relative,relative);
+          const h=box.halfExtents;
+          const distance=Math.hypot(Math.max(0,Math.abs(relative.x)-h.x),Math.max(0,Math.abs(relative.y)-h.y),Math.max(0,Math.abs(relative.z)-h.z));
+          gap=Math.min(gap,Math.max(0,distance-sphere.radius));
+        }
+      }
+    }
+    return gap;
+  }
+  function updateCeilingFingers(dt){
+    if(!ceilingControl.active) return;
+    const gaps=fingerUnits.map((_,i)=>fingerPrizeDistance(i));
+    for(let i=0;i<3;i++) if(gaps[i]>.5) ceilingControl.targets[i]=1;
+    ceilingControl.elapsed+=dt;
+    while(ceilingControl.elapsed>=.05-1e-9){
+      ceilingControl.elapsed=Math.max(0,ceilingControl.elapsed-.05);
+      ceilingControl.ticks++;
+      const openChance=ceilingControl.ticks<=20 ? .60 : .15;
+      for(let i=0;i<3;i++){
+        if(gaps[i]<=.1 && Math.random()<openChance){
+          ceilingControl.targets[i]=Math.max(0,Math.min(fingerClose[i],ceilingControl.targets[i])-.05);
+        }
+      }
+    }
+  }
+
+  function updateGripSprings(dt){
+    for(const p of prizes){
+      gripContacts=gripByPrize.get(p)||[];
+      updatePrizeGrip(p,dt);
+      gripByPrize.set(p,gripContacts);
+    }
+  }
+  function updatePrizeGrip(p,dt){
+    if(!p || p.won || !['grip','lift','pauseTop','return'].includes(state.mode)) return;
+    if(state.ceilingReached) return; // After reaching the ceiling, only physical contact holds the prize.
+    const b=p.body;
+    const points=currentClawPoints();
+
+    // Grip only after the closing claws have made real Cannon.js contacts
+    // with at least two fingers. The distance check is only used to build the
+    // spring anchor at the actual contact geometry; it never teleports the plush.
+    if((state.mode==='grip'||state.mode==='lift') && machine.close>.02){
+      // Real Cannon contact controls the closing limit. Each finger is allowed
+      // a small extra travel so the soft plush can compress before the motor
+      // stalls. Bad alignment therefore produces a partial grip rather than
+      // an automatic, all-or-nothing grab.
+      // Remember actual contact, not just the geometric prediction. If a finger
+      // that was touching the plush loses contact, treat the new gap as room to
+      // close again. This rule is active only during grip/lift before the ceiling.
+      const gapRuleActive=fingerGapResumeEnabled.value && !state.ceilingReached && (state.mode==='grip'||state.mode==='lift');
+      for(let i=0;i<points.length;i++){
+        const finger=fingerUnits[i];
+        const realContact=touchingPrize(finger.body,p);
+        // Resume only after contact is lost AND the geometric gap exceeds a
+        // very small clearance. This avoids waiting for a visibly wide gap.
+        const nearContact=plushSphereContactsFinger(i, machine.close);
+        if(gapRuleActive && (realContact || nearContact)){
+          fingerHadRealContact[i]=true;
+        } else if(gapRuleActive && !realContact && !nearContact && fingerHadRealContact[i]){
+          fingerContactLimit[i]=null;
+          fingerBlocked[i]=false;
+          fingerHadRealContact[i]=false;
+        }
+      }
+
+      // A successful hold still requires at least two real finger contacts.
+      if(gripContacts.length===0){
+        const contacts=[];
+        for(let i=0;i<points.length;i++){
+          const finger=fingerUnits[i];
+          const realContact=touchingPrize(finger.body,p);
+          if(!realContact) continue;
+          const q=points[i];
+          const dx=b.position.x-q.x, dy=b.position.y-q.y, dz=b.position.z-q.z;
+          const d=Math.hypot(dx,dy,dz);
+          contacts.push({i,dist:d,local:{x:dx,y:dy,z:dz}});
+        }
+        if(contacts.length>=2) gripContacts=contacts;
+      }
+    }
+
+    // The motor keeps applying inward pressure while a finger is touching the
+    // prize; the collision solver prevents penetration, so the force becomes
+    // contact pressure instead of allowing the claw to pass through the plush.
+    // Apply the force at the body surface to create realistic tipping/rolling.
+    if(state.mode==='grip' && machine.close>.08){
+      let touching=0;
+      for(let i=0;i<fingerUnits.length;i++){
+        if(!touchingPrize(fingerUnits[i].body,p)) continue;
+        touching++;
+        const q=points[i];
+        let nx=b.position.x-q.x, ny=b.position.y-q.y, nz=b.position.z-q.z;
+        const nl=Math.hypot(nx,ny,nz)||1;
+        nx/=nl; ny/=nl; nz/=nl;
+        const motorPressure=clamp((machine.close-(fingerContactLimit[i]||0))*42+7,7,24);
+        b.applyForce(new CANNON.Vec3(nx*motorPressure,ny*motorPressure,nz*motorPressure),new CANNON.Vec3(0,0,0));
+        // Plush-to-metal friction resists sliding along the fingers, but remains
+        // finite so a badly aligned prize can still slip free.
+        const vn=b.velocity.x*nx+b.velocity.y*ny+b.velocity.z*nz;
+        const tx=b.velocity.x-vn*nx, ty=b.velocity.y-vn*ny, tz=b.velocity.z-vn*nz;
+        const tl=Math.hypot(tx,ty,tz);
+        if(tl>.0001){
+          const frictionForce=Math.min(10,tl*5.5);
+          b.applyForce(new CANNON.Vec3(-tx/tl*frictionForce,-ty/tl*frictionForce,-tz/tl*frictionForce),new CANNON.Vec3(0,0,0));
+        }
+      }
+    }
+
+    gripContacts=gripContacts.filter(c=>fingerPrizeDistance(c.i,p)<.16);
+    if(gripContacts.length<2){gripContacts=[];return;}
+
+    // Recalculate the anchor from actual claw contact geometry. The spring
+    // pulls toward that anchor but never directly sets the body's position.
+    let ax=0,ay=0,az=0;
+    for(const c of gripContacts){
+      const q=points[c.i];
+      ax += q.x + c.local.x;
+      ay += q.y + c.local.y;
+      az += q.z + c.local.z;
+    }
+    ax/=gripContacts.length; ay/=gripContacts.length; az/=gripContacts.length;
+
+    const dx=ax-b.position.x, dy=ay-b.position.y, dz=az-b.position.z;
+    const k=18, d=4.2;
+    b.applyForce(new CANNON.Vec3(
+      dx*k-b.velocity.x*d,
+      dy*k-b.velocity.y*d,
+      dz*k-b.velocity.z*d
+    ),new CANNON.Vec3(0,0,0));
+
+    // Let collision forces and gravity determine rotation; no forced return
+    // toward the prize's original display orientation.
+
+  }
+
+  // ---------------------- Game state and controls ----------------------
+  const state={mode:'idle',timeLeft:20,round:0,score:0,grabElapsed:0,releaseElapsed:0,topPauseElapsed:0,toastTimer:0,loweredByTimer:false,roundWon:0,ceilingReached:false};
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+  const approach=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
+  const chute={x:chuteCenterX,z:chuteCenterZ};
+  const transport={verticalSpeed:0,returnSpeed:0};
+  function hoistToward(target,maxSpeed,dt){
+    const distance=Math.abs(target-machine.y);
+    const desired=Math.min(maxSpeed,Math.sqrt(2*1.8*distance));
+    transport.verticalSpeed=approach(transport.verticalSpeed,desired,1.8*dt);
+    machine.y=approach(machine.y,target,transport.verticalSpeed*dt);
+  }
+  let uiClock=0;
+  const modeText={homing:'RETURNING HOME',idle:'READY TO PLAY',move:'FREE MOVE',lower:'LOWERING',waitGrip:'WAITING FOR GRIP',grip:'GRIPPING',lift:'LIFTING',pauseTop:'PAUSING AT TOP',return:'RETURN TO CHUTE',dropPause:'READY TO RELEASE',release:'RELEASING',result:'ROUND COMPLETE'};
+  function showToast(title, text, seconds=1.8) {
+    // Central gameplay toast intentionally disabled: it obscures the claw/prize.
+    state.toastTimer=0;
+    $('toast').classList.remove('show');
+  }
+  function hideToast(){ $('toast').classList.remove('show'); }
+  function updateUI(force=false) {
+    if (!force && uiClock<.08) return; uiClock=0;
+    $('prizeMenuBtn').disabled=false;
+    if($('prizeMenu').open)refreshPrizeMenu();
+    $('roundNum').textContent=String(Math.max(1,state.round)).padStart(2,'0');
+    $('scoreTop').textContent=String(state.score);
+    $('timerDisplay').textContent=(state.mode==='move'?Math.max(0,state.timeLeft):state.mode==='idle'||state.mode==='result'||state.mode==='homing'?20:0).toFixed(1)+'s';
+    $('heightDisplay').textContent=Math.round(clamp(machine.y/homeY,0,1)*100)+'%';
+    $('statusText').textContent=modeText[state.mode]||'READY';
+    $('statusDot').className='status-dot'+(state.mode==='move'?' live':(['lower','waitGrip','grip','lift','pauseTop','return','dropPause','release'].includes(state.mode)?' warn':''));
+    $('startBtn').textContent=(state.mode==='idle'||state.mode==='result')?'ゲームスタート':'プレイ中';
+    $('resetBtn').disabled=state.mode==='homing';
+    $('startBtn').disabled=!(state.mode==='idle'||state.mode==='result');
+    $('dropBtn').disabled=!['move','lower'].includes(state.mode);
+    $('dropLabel').textContent=state.mode==='move'?'下降':state.mode==='lower'?'ここで閉じる':'待機中';
+    $('dropSymbol').textContent=state.mode==='lower'?'⇥':'↓';
+    $('panelTimer').textContent=(state.mode==='move'?Math.max(0,state.timeLeft):state.mode==='idle'||state.mode==='result'||state.mode==='homing'?20:0).toFixed(1);
+    $('panelPhase').textContent=state.mode==='homing'?'RETURN HOME':state.mode==='move'?'PLAY':state.mode==='lower'?'PUSH AGAIN':state.mode==='idle'||state.mode==='result'?'READY':'AUTO';
+    document.querySelector('.console').dataset.mode=state.mode;
+    $('panelLamp').className=['idle','result'].includes(state.mode)?'':'on';
+    $('tipText').textContent=state.mode==='homing'?'初期位置へ移動中 · 到着後に20秒スタート':state.mode==='move'?'ハンドルで位置を調整 · 残り時間内に狙いを定めよう':state.mode==='lower'?'アーム降下中 · もう一度押すとその高さで閉じます':state.mode==='waitGrip'?'アーム位置を確認中':state.mode==='grip'?'接触した指は停止し、離れると再び閉じます':state.mode==='lift'||state.mode==='pauseTop'||state.mode==='return'||state.mode==='dropPause'||state.mode==='release'?'物理演算で景品を搬送中':'ハンドルで位置を調整 · ゲームスタートで開始';
+    $('controlDesc').textContent=state.mode==='homing'?'初期位置へ移動中。到着後に操作できます。':state.mode==='move'?'20秒間は自由に操作できます。景品の真上にアームを合わせよう。':state.mode==='lower'||state.mode==='waitGrip'?'もう一度ボタンを押すと、その高さで停止して閉じます。最下部では自動で閉じます。':'ハンドルをドラッグ / スワイプして左右・奥行きを調整。操作時間は20秒です。';
+    $('actionCaption').textContent=state.mode==='move'?'①で下降、②でその場で閉じます。':state.mode==='lower'||state.mode==='waitGrip'?'好きな高さで②を押そう。押さない場合は最下部で自動で閉じます。':'景品は重力・摩擦・衝突によって転倒したり、落下したりします。';
+  }
+
+  function refreshPrizeMenu(){
+    const canSelect=state.mode==='idle'||state.mode==='result';
+    for(const button of document.querySelectorAll('[data-prize]')){
+      const selected=Number(button.dataset.prize)===selectedPrizeIndex;
+      button.disabled=!canSelect;
+      button.setAttribute('aria-pressed',String(selected));
+      button.querySelector('em').textContent=selected?'選択中':'選ぶ';
+    }
+    $('prizeMenuNote').textContent=canSelect?'選んだ景品を台に1つ配置します。':'プレイ終了後に景品を変更できます。';
+  }
+  function selectPrize(index){
+    if(!Number.isInteger(index)||!prizeDefs[index]||!['idle','result'].includes(state.mode))return;
+    if(index===selectedPrizeIndex){$('prizeMenu').close();return;}
+    clearGrip();activeClawContacts.clear();hideWinOverlay();
+    for(const prize of prizes){
+      world.removeBody(prize.body);scene.remove(prize.mesh);
+      const materialsToDispose=new Set(),geometriesToDispose=new Set();
+      prize.mesh.traverse(node=>{
+        if(node.material)for(const material of Array.isArray(node.material)?node.material:[node.material])materialsToDispose.add(material);
+        if(node.geometry && node.geometry!==standardSphere)geometriesToDispose.add(node.geometry);
+      });
+      materialsToDispose.forEach(m=>m.dispose());geometriesToDispose.forEach(g=>g.dispose());
+    }
+    prizes.length=0;selectedPrizeIndex=index;
+    createPrize(selectedPrizeDefinition(index),0);
+    state.mode='idle';state.timeLeft=20;state.roundWon=0;
+    refreshPrizeMenu();updateUI(true);$('prizeMenu').close();
+  }
+  function resetPrizes() {
+    for(const p of prizes){
+      p.body.position.set(p.def.x,initialPrizeY(p.def),p.def.z);
+      p.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),p.def.rot);
+      p.body.velocity.set(0,0,0); p.body.angularVelocity.set(0,0,0);
+      p.body.force.set(0,0,0); p.body.torque.set(0,0,0);
+      p.body.aabbNeedsUpdate=true; p.body.wakeUp();
+      p.won=false; p.hidden=false; p.mesh.visible=true; p.mesh.scale.setScalar(prizeScale(p.def)); p.mesh.position.set(p.def.x,initialPrizeY(p.def),p.def.z); p.mesh.quaternion.set(0,0,0,1); p.mesh.rotation.y=p.def.rot;
+    }
+  }
+  function beginHome(reset){
+    hideWinOverlay();hideToast();stopMachine();keysDown.clear();
+    if(reset){state.round=0;state.score=0;}
+    state.mode='homing';state.homePhase='raise';state.resetOnHome=reset;
+    state.timeLeft=20;state.grabElapsed=0;state.releaseElapsed=0;state.topPauseElapsed=0;
+    state.loweredByTimer=false;state.roundWon=0;state.ceilingReached=false;
+    transport.verticalSpeed=0;transport.returnSpeed=0;
+    ceilingControl.active=false;ceilingControl.releasing=true;
+    ceilingControl.elapsed=0;ceilingControl.ticks=0;
+    setClawTarget(0);clearGrip();fingerGapResumeEnabled.value=false;
+    for(let i=0;i<3;i++){fingerContactLimit[i]=null;fingerBlocked[i]=false;fingerHadRealContact[i]=false;}
+    updateUI(true);
+  }
+  function startGame(){
+    if(state.mode==='idle'||state.mode==='result') beginHome(false);
+  }
+  function resetGame(){
+    if(state.mode!=='homing') beginHome(true);
+  }
+  function updateHome(dt){
+    const speed=1.4;
+    if(state.homePhase==='raise'){
+      const distance=Math.max(0,homeY-machine.y);
+      const travel=Math.min(distance,speed*dt);
+      machine.y+=travel;dt-=travel/speed;
+      if(distance>travel+1e-8)return;
+      machine.y=homeY;state.homePhase='travel';
+    }
+    const dx=HOME_X-machine.x,dz=HOME_Z-machine.z,distance=Math.hypot(dx,dz);
+    const travel=Math.min(distance,speed*dt);
+    if(distance>1e-8){machine.x+=dx/distance*travel;machine.z+=dz/distance*travel;}
+    if(distance<=travel+1e-8 && Math.max(...fingerClose)<.01){
+      machine.x=HOME_X;machine.z=HOME_Z;machine.y=homeY;
+      if(state.resetOnHome)resetPrizes();
+      stopMachine();keysDown.clear();
+      state.round++;state.timeLeft=20;state.mode='move';
+      ceilingControl.releasing=false;fingerClose.fill(0);
+      clawServo.value=0;clawServo.velocity=0;machine.close=0;setClawTarget(0);
+      updateUI(true);
+    }
+  }
+
+  function pressDrop() {
+    if(state.mode==='move') {
+      state.mode='lower'; transport.verticalSpeed=0; state.loweredByTimer=false; stopMachine();
+      showToast('LOWERING','アームがゆっくり降下中。任意の高さでもう一度押すとそこで止まります！',1.6);
+    } else if(state.mode==='lower') {
+      // 降下中にもう一度押されたら、その現在の高さでストップして掴み始める
+      state.mode='grip'; state.grabElapsed=0; clearGrip();
+      for(let i=0;i<3;i++){fingerContactLimit[i]=null;fingerHadRealContact[i]=false;fingerBlocked[i]=false;}
+      fingerGapResumeEnabled.value=true;
+      setClawTarget(1);
+      stopMachine();
+      showToast('GRIP!','その高さでストップ！アームが閉じます。',1.1);
+    }
+    updateUI(true);
+  }
+  for(const [id,az,el,dist] of [['viewFront',0,.12,11],['viewSide',1.25,.18,11],['viewReset',.56,.32,12.5]]){
+    $(id).addEventListener('click',()=>{viewAzimuth=az;viewElevation=el;viewDistance=dist;viewTargetY=2.25;applyView();});
+  }
+  $('prizeMenuBtn').addEventListener('click',()=>{refreshPrizeMenu();$('prizeMenu').showModal();});
+  $('prizeMenuClose').addEventListener('click',()=>$('prizeMenu').close());
+  for(const button of document.querySelectorAll('[data-prize]'))button.addEventListener('click',()=>selectPrize(Number(button.dataset.prize)));
+  $('startBtn').addEventListener('click',startGame);
+  $('dropBtn').addEventListener('click',pressDrop);
+  $('resetBtn').addEventListener('click',resetGame);
+
+  // Velocity-based joystick control: the stick determines the desired velocity,
+  // rather than directly teleporting the machine. Releasing the stick returns it
+  // to center and sets the machine velocity to zero.
+  const stickBase=$('stickBase'), stickKnob=$('stickKnob');
+  let pointerActive=false;
+  const machineVelocity={x:0,z:0};
+  const keysDown=new Set();
+  function stickMax(){return Math.max(12,Math.min(stickBase.clientWidth,stickBase.clientHeight)/2-stickKnob.offsetWidth/2-3);}
+  function setKnob(dx,dy){
+    const max=stickMax(), len=Math.hypot(dx,dy); if(len>max){dx=dx/len*max;dy=dy/len*max;}
+    stickKnob.style.left=`calc(50% + ${dx}px)`; stickKnob.style.top=`calc(50% + ${dy}px)`;
+  }
+  function stopMachine(){machineVelocity.x=0;machineVelocity.z=0;setKnob(0,0);}
+  function updateVelocityFromPoint(e){
+    const r=stickBase.getBoundingClientRect(), max=stickMax();
+    let dx=e.clientX-r.left-r.width/2, dy=e.clientY-r.top-r.height/2;
+    const len=Math.hypot(dx,dy);
+    if(len>max){dx=dx/len*max;dy=dy/len*max;}
+    const n=Math.hypot(dx,dy);
+    setKnob(dx,dy);
+    if(n<7){ machineVelocity.x=0; machineVelocity.z=0; return; }
+    const speed=1.45;
+    machineVelocity.x=dx/n*speed;
+    machineVelocity.z=dy/n*speed;
+  }
+  stickBase.addEventListener('pointerdown',e=>{
+    e.preventDefault(); pointerActive=true;
+    try{stickBase.setPointerCapture(e.pointerId);}catch(_){}
+    updateVelocityFromPoint(e);
+  });
+  stickBase.addEventListener('pointermove',e=>{
+    if(!pointerActive)return; e.preventDefault(); updateVelocityFromPoint(e);
+  });
+  function endPointer(){pointerActive=false;stopMachine();}
+  stickBase.addEventListener('pointerup',endPointer);
+  stickBase.addEventListener('pointercancel',endPointer);
+  stickBase.addEventListener('lostpointercapture',endPointer);
+  window.addEventListener('keydown',e=>{
+    if($('prizeMenu').open)return;
+    const key=e.key.length===1?e.key.toLowerCase():e.key;
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d'].includes(key)&&state.mode==='move'){
+      e.preventDefault(); keysDown.add(key);
+    }
+    if(e.code==='Space'&&!e.repeat&&!$('dropBtn').disabled){e.preventDefault();pressDrop();}
+  });
+  window.addEventListener('keyup',e=>{const key=e.key.length===1?e.key.toLowerCase():e.key;keysDown.delete(key);});
+  window.addEventListener('blur',()=>{keysDown.clear();stopMachine();});
+
+  function showWinOverlay(prize){
+    const overlay=$('winOverlay');
+    $('winTitle').textContent='GET!!';
+    document.querySelector('.win-bear').textContent=({bear:'🧸',bunny:'🐰',dog:'🐶',sprite:'🌟'})[prize.def.type]||'🎁';
+    $('winCaption').textContent=`「${prize.def.name}」を獲得！ おめでとう！`;
+    overlay.classList.add('show');
+  }
+  function hideWinOverlay(){ $('winOverlay').classList.remove('show'); }
+  $('winContinue').addEventListener('click',hideWinOverlay);
+  function finishRound(){
+    state.mode='result'; state.timeLeft=20;
+    const msg=state.roundWon>0?`景品を${state.roundWon}個ゲット！`:'今回は惜しかった…';
+    showToast(state.roundWon>0?'PRIZE GET!':'ROUND COMPLETE',msg+' 次のラウンドに挑戦しよう。',2.8);
+    updateUI(true);
+  }
+  function updateGame(dt) {
+    if(state.toastTimer>0){state.toastTimer-=dt;if(state.toastTimer<=0)hideToast();}
+    switch(state.mode){
+      case 'homing': updateHome(dt);break;
+      case 'move':
+        {
+          let vx=machineVelocity.x, vz=machineVelocity.z;
+          const kx=(keysDown.has('ArrowRight')||keysDown.has('d')?1:0)-(keysDown.has('ArrowLeft')||keysDown.has('a')?1:0);
+          const kz=(keysDown.has('ArrowDown')||keysDown.has('s')?1:0)-(keysDown.has('ArrowUp')||keysDown.has('w')?1:0);
+          if(kx||kz){const n=Math.hypot(kx,kz); const speed=1.45; vx=kx/n*speed; vz=kz/n*speed;}
+          machine.x=clamp(machine.x+vx*dt,-2.15,2.15);
+          machine.z=clamp(machine.z+vz*dt,-1.7,1.50);
+          state.timeLeft-=dt;
+        if(state.timeLeft<=0){state.timeLeft=0;state.mode='lower';transport.verticalSpeed=0;state.loweredByTimer=true;stopMachine();showToast('TIME UP','操作時間終了。アームが自動で降下します。',1.7);}
+        }
+        break;
+      case 'lower':
+        hoistToward(clawMinY,.68,dt);
+        if(machine.y<=clawMinY+.001){machine.y=clawMinY;state.mode='grip';state.grabElapsed=0;clearGrip();for(let i=0;i<3;i++){fingerContactLimit[i]=null;fingerHadRealContact[i]=false;fingerBlocked[i]=false;} fingerGapResumeEnabled.value=true;setClawTarget(1);stopMachine();showToast('GRIP!','接触中は停止し、隙間ができると再び閉じます。',1.1);}
+        break;
+      case 'grip':
+        state.grabElapsed+=dt;
+        // The claw servo itself is spring-driven; wait until it has mostly
+        // closed before starting the lift.
+        if(state.grabElapsed>=1.15 && machine.close>.96){state.mode='lift';transport.verticalSpeed=0;}
+        break;
+
+      case 'lift':
+        setClawTarget(1);
+        hoistToward(homeY,.90,dt);
+
+        if(machine.y>=homeY-.001){
+          machine.y=homeY;
+          state.ceilingReached=true;
+          fingerGapResumeEnabled.value=false;
+          state.topPauseElapsed=0;
+          ceilingControl.active=true;
+          ceilingControl.elapsed=0; ceilingControl.ticks=0;
+          for(let i=0;i<3;i++) ceilingControl.targets[i]=fingerClose[i];
+          clearGrip();
+          state.mode='pauseTop';
+        }
+        break;
+      case 'pauseTop':
+        machine.y=homeY;
+        state.topPauseElapsed+=dt;
+        
+        if(state.topPauseElapsed>=1.0){state.mode='return';transport.returnSpeed=0;}
+        break;
+      case 'return': {
+        const dx=chute.x-machine.x, dz=chute.z-machine.z, dist=Math.hypot(dx,dz);
+        transport.returnSpeed=approach(transport.returnSpeed,Math.min(1.18,Math.sqrt(2*1.5*dist)),1.5*dt);
+        const speed=transport.returnSpeed*dt;
+        if(dist<=speed){machine.x=chute.x;machine.z=chute.z;state.mode='dropPause';state.releaseElapsed=0;}
+        else {machine.x+=dx/dist*speed;machine.z+=dz/dist*speed;}
+        break;
+      }
+      case 'dropPause':
+        state.releaseElapsed+=dt;
+        if(state.releaseElapsed>=.35){
+          state.mode='release';state.releaseElapsed=0;
+          ceilingControl.active=false;ceilingControl.releasing=true;
+          clawServo.value=Math.max(...fingerClose);clawServo.velocity=0;setClawTarget(0);
+        }
+        break;
+      case 'release':
+        state.releaseElapsed+=dt; setClawTarget(0);
+        if(state.releaseElapsed>=1.0 && Math.max(...fingerClose)<.05){ceilingControl.releasing=false;state.mode='result';finishRound();}
+        break;
+    }
+    uiClock+=dt; updateUI();
+  }
+  // Award is triggered as soon as the plush body enters the chute sensor volume; the entire plush does not need to fit inside the footprint.
+  function checkPrizeChute() {
+    for(const p of prizes){
+      if(p.won) continue;
+      const b=p.body;
+      if(b.position.y < -.08 && b.position.x>chuteLeft-.34 && b.position.x<chuteRight+.34 && b.position.z>chuteBack-.30 && b.position.z<chuteFront+.30){
+        p.won=true; state.score++; state.roundWon++;
+        showWinOverlay(p);
+        showToast('PRIZE DETECTED!',`${p.def.name}のぬいぐるみを獲得！`,1.6); updateUI(true);
+      }
+      if(b.position.y < -1.7){ // Recovery safety: keep simulation stable if the prize escapes the playfield.
+        b.position.set(p.def.x,initialPrizeY(p.def),p.def.z); b.velocity.set(0,0,0); b.angularVelocity.set(0,0,0); b.wakeUp();
+      }
+    }
+  }
+
+  // Resize and rendering loop
+  function resize(){
+    const r=$('stage').getBoundingClientRect();
+    const w=Math.max(1,r.width), h=Math.max(1,r.height);
+    camera.aspect=w/h;
+    // Slightly zoom out vertically on narrow screens so the cabinet remains in frame.
+    camera.fov=window.innerWidth<600?43:39;
+    camera.updateProjectionMatrix(); renderer.setSize(w,h,false);
+  }
+  window.addEventListener('resize',resize); resize();
+  // Switch from the independent cabinet preview only after the full render + physics setup succeeds.
+  if (window.__prizeFallback) window.__prizeFallback.stop();
+  $('resetBtn').disabled=false;
+  const stickForGame=$('stickBase'); stickForGame.style.opacity='1'; stickForGame.style.pointerEvents='';
+  loading.classList.add('hidden');
+  showToast('READY?','ゲームスタートで20秒の挑戦が始まる！',2.6); updateUI(true);
+  let lastTime=performance.now();
+  const fixed=1/120;
+  world.addEventListener('preStep',()=>{
+    activeClawContacts.clear();
+    for(const contact of world.contacts){
+      if(contact.enabled!==false) markClawContact(contact.bi,contact.bj);
+    }
+    updateGripSprings(fixed);
+  });
+  function animate(now){
+    requestAnimationFrame(animate);
+    let dt=(now-lastTime)/1000; lastTime=now; dt=Math.min(.04,Math.max(0,dt));
+    updateGame(dt);
+    updateClawSpring(dt||fixed);
+    updateCeilingFingers(dt);
+    updateClawGeometry(dt||fixed);
+    physicsFrame++;
+    world.step(fixed,dt,5);
+    for(const contact of world.contacts){
+      if(contact.enabled!==false) markClawContact(contact.bi,contact.bj);
+    }
+    // Keep the prize visually aligned to its rigid body. The claw itself is
+    // kinematic and therefore never teleports the prize through a collision.
+    // Spring forces + Cannon contact constraints handle the actual holding.
+    // Sync the plush visuals with each rigid body's position and quaternion.
+    for(const p of prizes){
+      p.mesh.position.set(p.body.position.x,p.body.position.y,p.body.position.z);
+      p.mesh.quaternion.set(p.body.quaternion.x,p.body.quaternion.y,p.body.quaternion.z,p.body.quaternion.w);
+      if(p.won){p.mesh.userData.wonGlow=(p.mesh.userData.wonGlow||0)+dt;p.mesh.scale.setScalar(prizeScale(p.def)*(1+Math.sin(p.mesh.userData.wonGlow*4)*.012));}
+    }
+    // Kinematic arm meshes follow their physical collision bodies.
+    for(const f of fingerUnits){
+      f.mesh.position.set(machine.x,machine.y-.12,machine.z);
+      f.mesh.quaternion.set(f.body.quaternion.x,f.body.quaternion.y,f.body.quaternion.z,f.body.quaternion.w);
+    }
+    checkPrizeChute();
+    // Restrained idle motion in the light strip adds a little arcade atmosphere.
+    materials.edge.emissiveIntensity=.28+.10*(Math.sin(now*.002)+1);
+    renderer.render(scene,camera);
+  }
+  requestAnimationFrame(animate);
+    })();
+  } catch (err) {
+    console.error('UFO catcher initialization failed:', err);
+    if (window.__prizeFallback) window.__prizeFallback.showError('ゲーム初期化エラー: ' + (err && err.message ? err.message : String(err)) + '。画面の3D筐体は表示したままです。');
+  }
+}
+if (window.__PRIZE_LIBS_READY) startFullGame();
+else window.addEventListener('prize-libs-ready', startFullGame, {once:true});
+</script>
+</body>
+</html>
