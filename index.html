@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#fff2f8" />
 <title>ふわもこキャッチャー — 3D UFO CATCHER</title>
-<!-- Audio: BGM.mp3, start.mp3, press.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, close.mp3, open.mp3, timeup.mp3, get.mp3, miss.mp3 (beside this HTML). -->
+<!-- Audio: BGM.mp3, start.mp3, press.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, closed.mp3, open.mp3, timeup.mp3, get.mp3, miss.mp3 (beside this HTML). -->
 <style>
   :root {
     --bg: #fff3fa; --panel: rgba(255, 250, 255, .94); --line: rgba(216, 151, 198, .34);
@@ -1508,7 +1508,7 @@ function startFullGame() {
     start:'start.mp3', press:'press.mp3',
     move:'move.mp3', move2:'move2.mp3',
     down:'down.mp3', up:'up.mp3',
-    close:'close.mp3', open:'open.mp3',
+    close:'closed.mp3', open:'open.mp3',
     timeup:'timeup.mp3', get:'get.mp3', miss:'miss.mp3'
   };
   const oneShotSounds=new Set(['start','press','timeup','miss']);
@@ -1682,25 +1682,28 @@ function startFullGame() {
     setAudioLoop('down',dy<-.00002&&state.mode==='lower');
     setAudioLoop('up',dy>.00002&&(state.mode==='lift'||state.mode==='homing'));
 
-    // Measure actual finger rotations, including independent motion when the
-    // plush blocks one finger or a finger slips open during transport.
+    // Sound for the three fingers is phase-restricted, NOT triggered by every
+    // physical claw movement: closing plays only while gripping a prize, and
+    // opening plays only for the deliberate release over the prize chute.
     let opening=0,closing=0;
     for(let i=0;i<3;i++){
       const change=fingerClose[i]-previousFingerClose[i];
       if(change>closing)closing=change;
       if(-change>opening)opening=-change;
     }
-    // Brief hold prevents audible gaps at frame boundaries, without sounding
-    // throughout a stationary claw phase. The stronger motion wins if mixed.
-    if(closing>.0015||opening>.0015){
-      if(closing>=opening){clawAudioHold.close=.055;clawAudioHold.open=0;}
-      else{clawAudioHold.open=.055;clawAudioHold.close=0;}
-    }else{
-      clawAudioHold.close=Math.max(0,clawAudioHold.close-dt);
-      clawAudioHold.open=Math.max(0,clawAudioHold.open-dt);
-    }
-    setAudioLoop('close',clawAudioHold.close>0);
-    setAudioLoop('open',clawAudioHold.open>0);
+    const grippingNow=state.mode==='grip';
+    const releasingAtChute=state.mode==='release'&&
+      Math.hypot(machine.x-chute.x,machine.z-chute.z)<.08;
+    // A short hold smooths tiny servo pauses; exiting an allowed phase
+    // immediately cancels its sound, including during homing or transport.
+    if(!grippingNow)clawAudioHold.close=0;
+    else if(closing>.0015)clawAudioHold.close=.055;
+    else clawAudioHold.close=Math.max(0,clawAudioHold.close-dt);
+    if(!releasingAtChute)clawAudioHold.open=0;
+    else if(opening>.0015)clawAudioHold.open=.055;
+    else clawAudioHold.open=Math.max(0,clawAudioHold.open-dt);
+    setAudioLoop('close',grippingNow&&clawAudioHold.close>0);
+    setAudioLoop('open',releasingAtChute&&clawAudioHold.open>0);
     setAudioLoop('get',$('winOverlay').classList.contains('show'));
   }
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
