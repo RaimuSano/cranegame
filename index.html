@@ -508,6 +508,9 @@ function startFullGame() {
     (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
+  // Used by the cabinet-safe home-position calculation during initialization.
+  // Keep this helper ABOVE its first use (otherwise JS temporal dead zone halts startup).
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const fallbackRenderer = window.__prizeFallback && window.__prizeFallback.getRenderer();
   const canvas = (window.__prizeFallback && window.__prizeFallback.getCanvas()) || $('scene');
   const loading = $('loading');
@@ -1137,6 +1140,48 @@ function startFullGame() {
   }
   for(let i=0;i<3;i++) makeLClaw();
 
+  // The fingers are kinematic: Cannon.js cannot stop a kinematic-vs-static
+  // cabinet collision. A prize caught between such a finger and a wall used
+  // to receive contradictory, effectively infinite-mass impulses.
+  // Measure the actual TWO-BOX finger silhouette at every hinge angle and
+  // reserve that much space inside the four cabinet walls. This is a trolley
+  // travel stop, not a fake force or a modification to the grabbing physics.
+  function computeClawSafeTravel(){
+    const extent={minX:Infinity,maxX:-Infinity,minZ:Infinity,maxZ:-Infinity};
+    for(let i=0;i<fingerUnits.length;i++){
+      const a=Math.PI*2*i/3+Math.PI/6;
+      const radial=new CANNON.Quaternion();
+      radial.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
+      for(let k=0;k<=20;k++){
+        const hinge=new CANNON.Quaternion();
+        hinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),1.10+(0.46-1.10)*k/20);
+        const rotation=new CANNON.Quaternion();radial.mult(hinge,rotation);
+        const body=fingerUnits[i].body;
+        for(let j=0;j<body.shapes.length;j++){
+          const half=body.shapes[j].halfExtents;
+          const off=body.shapeOffsets[j];
+          for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]){
+            const corner=new CANNON.Vec3(off.x+sx*half.x,off.y+sy*half.y,off.z+sz*half.z);
+            const worldPoint=new CANNON.Vec3();rotation.vmult(corner,worldPoint);
+            extent.minX=Math.min(extent.minX,worldPoint.x);
+            extent.maxX=Math.max(extent.maxX,worldPoint.x);
+            extent.minZ=Math.min(extent.minZ,worldPoint.z);
+            extent.maxZ=Math.max(extent.maxZ,worldPoint.z);
+          }
+        }
+      }
+    }
+    // The inner collision faces of the four cabinet walls (see physicsBox).
+    const buffer=.065;
+    return {
+      minX:-2.55+buffer-extent.minX,
+      maxX: 2.55-buffer-extent.maxX,
+      minZ:-2.05+buffer-extent.minZ,
+      maxZ: 2.05-buffer-extent.maxZ
+    };
+  }
+  const clawSafeTravel=computeClawSafeTravel();
+
   function setLClaw(unit, root, radialAngle, openAmount, dt){
     // The L itself is rigid. Only its root hinge rotates.
     // Positive radial direction = outward. Closing rotates the whole L so the
@@ -1179,7 +1224,10 @@ function startFullGame() {
 
   // 0 = fully open, 1 = fully closed. Keep the claw open whenever it is initialized/reset.
   const DEFAULT_CLAW_OPEN = 0;
-  const HOME_X=-2.05, HOME_Z=1.38; // left-front starting position
+  // Park as close as possible to the original left-front home without
+  // letting the open fingers project through the cabinet side/front walls.
+  const HOME_X=clamp(-2.05,clawSafeTravel.minX,clawSafeTravel.maxX);
+  const HOME_Z=clamp(1.38,clawSafeTravel.minZ,clawSafeTravel.maxZ);
   const machine = {x:HOME_X, z:HOME_Z, y:5.20, close:DEFAULT_CLAW_OPEN};
   // Each finger has its own physical closure limit. A plush collision can
   // stop one finger while the other two continue closing.
@@ -1203,49 +1251,42 @@ function startFullGame() {
     clawServo.value = clamp(clawServo.value+clawServo.velocity*dt,0,1);
     machine.close=clawServo.value;
   }
+  // Precise compound-sphere vs. oriented-BOX probe for a future finger angle.
+  // The old centerline samples missed box edges/corners and sometimes noticed
+  // the plush only after the kinematic arm was already inside it. Preventing
+  // that overtravel is especially important when a plush backs onto a wall.
   function plushSphereContactsFinger(fingerIndex, openAmount){
-    const candidates=prizes.filter(p=>!p.won);
-    if(!candidates.length) return false;
     const unit=fingerUnits[fingerIndex];
-    const a=(Math.PI*2*fingerIndex/3)+Math.PI/6;
-    const openAngle=1.10, closedAngle=0.46;
-    const hingeAngle=openAngle+(closedAngle-openAngle)*openAmount;
+    const a=Math.PI*2*fingerIndex/3+Math.PI/6;
+    const hingeAngle=1.10+(0.46-1.10)*openAmount;
     const qHinge=new CANNON.Quaternion();
     qHinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),hingeAngle);
     const qRad=new CANNON.Quaternion();
     qRad.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
-    const q=new CANNON.Quaternion();
-    qRad.mult(qHinge,q);
+    const q=new CANNON.Quaternion();qRad.mult(qHinge,q);
+    const inverse=new CANNON.Quaternion();q.inverse(inverse);
     const root=new CANNON.Vec3(machine.x,machine.y-.12,machine.z);
-    const longLen=1.00*1.2, shortLen=.50*1.2;
-    const samples=[];
-    // Sample both rigid L segments. This is only a contact probe: Cannon.js
-    // remains responsible for the actual collision response and forces.
-    for(let k=0;k<=12;k++){
-      const t=k/12;
-      samples.push(new CANNON.Vec3(0,-longLen*t,0));
-    }
-    for(let k=0;k<=8;k++){
-      const t=k/8;
-      samples.push(new CANNON.Vec3(-shortLen*t,-longLen,0));
-    }
-    const worldPoint=new CANNON.Vec3();
-    for(const local of samples){
-      q.vmult(local,worldPoint);
-      worldPoint.vadd(root,worldPoint);
-      for(const prize of candidates){
-      const body=prize.body;
-      for(let j=0;j<body.shapes.length;j++){
-        const shape=body.shapes[j];
-        if(!(shape instanceof CANNON.Sphere)) continue;
-        const off=body.shapeOffsets[j];
-        const center=body.shapeOrientations[j] ? new CANNON.Vec3() : null;
-        const wc=new CANNON.Vec3();
-        body.quaternion.vmult(off,wc);
-        wc.vadd(body.position,wc);
-        const r=shape.radius + .012;
-        if(worldPoint.distanceTo(wc)<=r) return true;
-      }
+    const worldCenter=new CANNON.Vec3();
+    const local=new CANNON.Vec3();
+    for(const prize of prizes){
+      if(prize.won)continue;
+      const b=prize.body;
+      for(let j=0;j<b.shapes.length;j++){
+        const sphere=b.shapes[j];
+        if(!(sphere instanceof CANNON.Sphere))continue;
+        b.quaternion.vmult(b.shapeOffsets[j],worldCenter);
+        worldCenter.vadd(b.position,worldCenter);
+        worldCenter.vsub(root,local);
+        inverse.vmult(local,local);
+        for(let k=0;k<unit.body.shapes.length;k++){
+          const box=unit.body.shapes[k];
+          const offset=unit.body.shapeOffsets[k];
+          const dx=Math.max(0,Math.abs(local.x-offset.x)-box.halfExtents.x);
+          const dy=Math.max(0,Math.abs(local.y-offset.y)-box.halfExtents.y);
+          const dz=Math.max(0,Math.abs(local.z-offset.z)-box.halfExtents.z);
+          const safeRadius=sphere.radius+.018;
+          if(dx*dx+dy*dy+dz*dz<=safeRadius*safeRadius)return true;
+        }
       }
     }
     return false;
@@ -1399,6 +1440,24 @@ function startFullGame() {
     if(state.ceilingReached) return; // After reaching the ceiling, only physical contact holds the prize.
     const b=p.body;
     const points=currentClawPoints();
+    // Plush can slide UP a wall, but the motor must not keep driving it INTO
+    // the wall. Fade only the outward component of artificial grip forces,
+    // based on the compound plush's real AABB. Gravity and Cannon contacts
+    // are unchanged, and this does not attach or teleport the toy.
+    b.computeAABB();
+    const aabb=b.aabb;
+    const fadeDistance=.18;
+    const wallFactors={
+      left:clamp((aabb.lowerBound.x+2.55)/fadeDistance,0,1),
+      right:clamp((2.55-aabb.upperBound.x)/fadeDistance,0,1),
+      back:clamp((aabb.lowerBound.z+2.05)/fadeDistance,0,1),
+      front:clamp((2.05-aabb.upperBound.z)/fadeDistance,0,1)
+    };
+    function applySoftGripForce(x,y,z){
+      if(x<0)x*=wallFactors.left;else x*=wallFactors.right;
+      if(z<0)z*=wallFactors.back;else z*=wallFactors.front;
+      b.applyForce(new CANNON.Vec3(x,y,z),new CANNON.Vec3(0,0,0));
+    }
 
     // Grip only after the closing claws have made real Cannon.js contacts
     // with at least two fingers. The distance check is only used to build the
@@ -1457,7 +1516,7 @@ function startFullGame() {
         const nl=Math.hypot(nx,ny,nz)||1;
         nx/=nl; ny/=nl; nz/=nl;
         const motorPressure=clamp((machine.close-(fingerContactLimit[i]||0))*42+7,7,24);
-        b.applyForce(new CANNON.Vec3(nx*motorPressure,ny*motorPressure,nz*motorPressure),new CANNON.Vec3(0,0,0));
+        applySoftGripForce(nx*motorPressure,ny*motorPressure,nz*motorPressure);
         // Plush-to-metal friction resists sliding along the fingers, but remains
         // finite so a badly aligned prize can still slip free.
         const vn=b.velocity.x*nx+b.velocity.y*ny+b.velocity.z*nz;
@@ -1465,7 +1524,7 @@ function startFullGame() {
         const tl=Math.hypot(tx,ty,tz);
         if(tl>.0001){
           const frictionForce=Math.min(10,tl*5.5);
-          b.applyForce(new CANNON.Vec3(-tx/tl*frictionForce,-ty/tl*frictionForce,-tz/tl*frictionForce),new CANNON.Vec3(0,0,0));
+          applySoftGripForce(-tx/tl*frictionForce,-ty/tl*frictionForce,-tz/tl*frictionForce);
         }
       }
     }
@@ -1486,11 +1545,11 @@ function startFullGame() {
 
     const dx=ax-b.position.x, dy=ay-b.position.y, dz=az-b.position.z;
     const k=18, d=4.2;
-    b.applyForce(new CANNON.Vec3(
+    applySoftGripForce(
       dx*k-b.velocity.x*d,
       dy*k-b.velocity.y*d,
       dz*k-b.velocity.z*d
-    ),new CANNON.Vec3(0,0,0));
+    );
 
     // Let collision forces and gravity determine rotation; no forced return
     // toward the prize's original display orientation.
@@ -1706,9 +1765,11 @@ function startFullGame() {
     setAudioLoop('open',releasingAtChute&&clawAudioHold.open>0);
     setAudioLoop('get',$('winOverlay').classList.contains('show'));
   }
-  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const approach=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
-  const chute={x:chuteCenterX,z:chuteCenterZ};
+  // The chute is wide enough to release slightly inward of its center; keep
+  // the opening claws clear of the front cabinet wall during transport too.
+  const chute={x:clamp(chuteCenterX,clawSafeTravel.minX,clawSafeTravel.maxX),
+               z:clamp(chuteCenterZ,clawSafeTravel.minZ,clawSafeTravel.maxZ)};
   const transport={verticalSpeed:0,returnSpeed:0};
   function hoistToward(target,maxSpeed,dt){
     const distance=Math.abs(target-machine.y);
@@ -1937,8 +1998,10 @@ function startFullGame() {
           const kx=(keysDown.has('ArrowRight')||keysDown.has('d')?1:0)-(keysDown.has('ArrowLeft')||keysDown.has('a')?1:0);
           const kz=(keysDown.has('ArrowDown')||keysDown.has('s')?1:0)-(keysDown.has('ArrowUp')||keysDown.has('w')?1:0);
           if(kx||kz){const n=Math.hypot(kx,kz); const speed=1.45; vx=kx/n*speed; vz=kz/n*speed;}
-          machine.x=clamp(machine.x+vx*dt,-2.15,2.15);
-          machine.z=clamp(machine.z+vz*dt,-1.7,1.50);
+          // Model-based travel stops: even at the rear corners, no part of
+          // any L-shaped finger can enter a static wall during lowering/grip.
+          machine.x=clamp(machine.x+vx*dt,Math.max(-2.15,clawSafeTravel.minX),Math.min(2.15,clawSafeTravel.maxX));
+          machine.z=clamp(machine.z+vz*dt,Math.max(-1.7,clawSafeTravel.minZ),Math.min(1.50,clawSafeTravel.maxZ));
           state.timeLeft-=dt;
         if(state.timeLeft<=0){playOneShot('timeup');state.timeLeft=0;state.mode='lower';transport.verticalSpeed=0;state.loweredByTimer=true;stopMachine();showToast('TIME UP','操作時間終了。アームが自動で降下します。',1.7);}
         }
@@ -2039,6 +2102,28 @@ function startFullGame() {
       if(contact.enabled!==false) markClawContact(contact.bi,contact.bj);
     }
     updateGripSprings(fixed);
+  });
+  // Last-resort numerical guard after EACH physics substep. It never alters
+  // ordinary motion, but prevents a single bad contact impulse from turning
+  // into explosive linear/angular speed on subsequent solver iterations.
+  world.addEventListener('postStep',()=>{
+    for(const prize of prizes){
+      const b=prize.body;
+      if(!Number.isFinite(b.position.x+b.position.y+b.position.z+
+                          b.velocity.x+b.velocity.y+b.velocity.z+
+                          b.angularVelocity.x+b.angularVelocity.y+b.angularVelocity.z)){
+        b.position.set(prize.def.x,initialPrizeY(prize.def),prize.def.z);
+        b.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),prize.def.rot);
+        b.velocity.set(0,0,0); b.angularVelocity.set(0,0,0);
+        b.force.set(0,0,0); b.torque.set(0,0,0);
+        b.aabbNeedsUpdate=true;b.wakeUp();
+        continue;
+      }
+      const linearSpeed=b.velocity.length();
+      if(linearSpeed>5.5)b.velocity.scale(5.5/linearSpeed,b.velocity);
+      const spinSpeed=b.angularVelocity.length();
+      if(spinSpeed>9)b.angularVelocity.scale(9/spinSpeed,b.angularVelocity);
+    }
   });
   function animate(now){
     requestAnimationFrame(animate);
