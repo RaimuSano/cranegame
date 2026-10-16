@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#fff2f8" />
 <title>ふわもこキャッチャー — 3D UFO CATCHER</title>
+<!-- Audio: Place BGM.mp3, start.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, get.mp3 and open.mp3 beside this HTML. -->
 <style>
   :root {
     --bg: #fff3fa; --panel: rgba(255, 250, 255, .94); --line: rgba(216, 151, 198, .34);
@@ -190,6 +191,22 @@
   @media(max-width:380px){.console{grid-template-columns:minmax(100px,1fr) minmax(82px,.85fr) minmax(90px,.9fr);gap:5px;padding:20px 12px 22px;}.stick-base{width:78px;height:78px;}#dropBtn{width:72px;height:72px;}.screen-digits b{font-size:25px;}.deck-label span{font-size:6px;}.screen-digits{gap:3px;}}
   @media(max-height:650px) and (min-width:821px){.console{min-height:174px;padding-top:14px;padding-bottom:18px;}.stick-base{width:82px;height:82px;}.stick-knob{width:39px;height:39px;}#dropBtn{width:76px;height:76px;}.panel-screen{padding:5px 9px;}.screen-digits b{font-size:28px;}.stick-wrap,.action-side{gap:6px;}.panel-brand{margin-bottom:4px;}}
 
+  /* Audio settings modal: native dialog works with mouse, keyboard and touch. */
+  #audioSettings {width:min(405px,calc(100vw - 28px));max-height:88dvh;overflow:auto;padding:24px;border:1px solid #e5bddc;border-radius:22px;background:linear-gradient(140deg,#fffaff,#f4edff);color:#493052;box-shadow:0 24px 88px #26183d77;}
+  #audioSettings::backdrop{background:#211a36a8;backdrop-filter:blur(5px);}
+  .audio-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px;}
+  .audio-settings-heading h2{font-size:19px;margin:0;font-weight:900;}
+  .audio-close{width:36px;height:36px;flex-shrink:0;border-radius:50%;font-size:24px;line-height:1;background:#eadbec;color:#674770;}
+  .audio-volume-item{display:block;padding:14px 0 16px;}
+  .audio-volume-item+.audio-volume-item{border-top:1px solid #e4d1e7;}
+  .audio-volume-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:800;font-size:13px;margin-bottom:12px;}
+  .audio-volume-row output{min-width:52px;text-align:right;color:#b13983;font-variant-numeric:tabular-nums;}
+  .audio-volume-item input[type=range]{display:block;width:100%;height:22px;cursor:pointer;accent-color:#d954a3;touch-action:auto;}
+  .audio-volume-desc{font-size:10px;color:#826583;line-height:1.6;margin:8px 0 0;}
+  .audio-settings-footer{display:flex;justify-content:flex-end;margin-top:14px;}
+  .audio-settings-done{min-width:100px;padding:10px 18px;border-radius:11px;background:linear-gradient(120deg,#f5c6dc,#d0b6ff);font-size:12px;font-weight:800;}
+  #audioSettingsBtn{font-weight:800;}
+  @media(max-width:420px){.topbar .brand{gap:6px;}.topbar .brand-mark{width:30px;height:30px;}.topbar .brand-name{font-size:10px;letter-spacing:.07em;}.topbar .brand-sub{display:none;}.top-right{gap:3px;}.top-right .pill{padding:6px;font-size:8px;}#audioSettingsBtn{font-size:8px;padding:6px;}}
   #prizeMenu{width:min(520px,calc(100vw - 28px));max-height:85dvh;overflow:auto;padding:24px;border:1px solid #efd1ec;border-radius:22px;background:linear-gradient(140deg,#fffaff,#eee9ff);color:#493052;box-shadow:0 24px 90px #1e163780;}
   #prizeMenu::backdrop{background:#1b103ba8;backdrop-filter:blur(5px);}
   .menu-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;}.menu-heading small{font-size:9px;letter-spacing:.2em;color:#aa729e;}.menu-heading h2{font-size:20px;margin:6px 0;}.menu-heading button{width:36px;height:36px;border-radius:50%;background:#e8d9ed;font-size:24px;flex-shrink:0;}
@@ -210,6 +227,7 @@
     </div>
     <div class="top-right">
       <button class="pill" id="prizeMenuBtn" disabled>景品を選ぶ</button>
+      <button class="pill" id="audioSettingsBtn" type="button" aria-haspopup="dialog" aria-controls="audioSettings">♫ 音量設定</button>
       <div class="pill">ROUND <strong id="roundNum">01</strong></div>
       <div class="pill">PRIZES <strong id="scoreTop">0</strong></div>
     </div>
@@ -273,6 +291,24 @@
     <button class="prize-choice" data-prize="3" aria-pressed="false"><span>🌟</span><b>おほしさまのモコ</b><small>星飾りのオリジナルキャラ</small><em>選ぶ</em></button>
   </div>
   <p class="menu-footnote">切り替えると景品は初期配置に戻ります。<br>プレイ中は変更できません。</p>
+</dialog>
+
+<dialog id="audioSettings" aria-labelledby="audioSettingsTitle">
+  <div class="audio-settings-heading">
+    <h2 id="audioSettingsTitle">♫ 音量設定</h2>
+    <button type="button" class="audio-close" id="audioSettingsClose" aria-label="音量設定を閉じる">×</button>
+  </div>
+  <div class="audio-volume-item">
+    <label class="audio-volume-row" for="bgmVolume"><span>♪ BGM</span><output id="bgmVolumeValue" for="bgmVolume">40%</output></label>
+    <input id="bgmVolume" type="range" min="0" max="100" step="1" value="40" aria-label="BGM音量" />
+    <p class="audio-volume-desc">ゲーム中に流れるBGMの音量</p>
+  </div>
+  <div class="audio-volume-item">
+    <label class="audio-volume-row" for="seVolume"><span>♫ SE（効果音）</span><output id="seVolumeValue" for="seVolume">100%</output></label>
+    <input id="seVolume" type="range" min="0" max="100" step="1" value="100" aria-label="効果音音量" />
+    <p class="audio-volume-desc">スタート・移動・上昇下降・獲得・開放音をまとめて調整</p>
+  </div>
+  <div class="audio-settings-footer"><button type="button" class="audio-settings-done" id="audioSettingsDone">完了</button></div>
 </dialog>
 
 <!-- Three independently cropped image assets, embedded for reliable file:// loading. -->
@@ -1463,6 +1499,144 @@ function startFullGame() {
 
   // ---------------------- Game state and controls ----------------------
   const state={mode:'idle',timeLeft:20,round:0,score:0,grabElapsed:0,releaseElapsed:0,topPauseElapsed:0,toastTimer:0,loweredByTimer:false,roundWon:0,ceilingReached:false};
+  // ---------------------- Event-driven MP3 audio ----------------------
+  // Put the files beside this HTML; filenames (including capital BGM) are exact.
+  // A persistent Audio element per track avoids reloading/decode churn and gaps
+  // when the render loop changes state at 60/120 fps.
+  const soundFiles={
+    bgm:'BGM.mp3', start:'start.mp3', move:'move.mp3', move2:'move2.mp3',
+    down:'down.mp3', up:'up.mp3', get:'get.mp3', open:'open.mp3'
+  };
+  const soundVolumes={bgm:.40,start:.78,move:.60,move2:.60,down:.66,up:.66,get:.82,open:.70};
+  const soundTracks={};
+  const activeLoops={move:false,move2:false,down:false,up:false,get:false,open:false};
+  const warnedSounds=new Set();
+  let audioActivated=false;
+  // BGM and SE master gains are separate; keep each sound's existing mix level.
+  const audioStorageKey='fuwamoco-volume-v1';
+  const audioSettings={bgm:40,se:100};
+  try{
+    const saved=JSON.parse(localStorage.getItem(audioStorageKey)||'null');
+    if(saved&&typeof saved==='object'){
+      for(const key of ['bgm','se']){
+        if(Number.isFinite(saved[key]))audioSettings[key]=Math.round(Math.max(0,Math.min(100,saved[key])));
+      }
+    }
+  }catch(_){/* Local files or private browsing may block persistent storage. */}
+  function applyAudioVolumes(){
+    for(const [key,track] of Object.entries(soundTracks)){
+      track.volume=Math.max(0,Math.min(1,key==='bgm'?audioSettings.bgm/100:soundVolumes[key]*audioSettings.se/100));
+    }
+  }
+  function reflectAudioSettings(){
+    $('bgmVolume').value=String(audioSettings.bgm);
+    $('seVolume').value=String(audioSettings.se);
+    $('bgmVolumeValue').textContent=audioSettings.bgm+'%';
+    $('seVolumeValue').textContent=audioSettings.se+'%';
+  }
+  for(const key of ['bgm','se']){
+    $(key==='bgm'?'bgmVolume':'seVolume').addEventListener('input',event=>{
+      const value=Number(event.target.value);
+      audioSettings[key]=Number.isFinite(value)?Math.round(Math.max(0,Math.min(100,value))):0;
+      applyAudioVolumes();
+      reflectAudioSettings();
+      try{localStorage.setItem(audioStorageKey,JSON.stringify(audioSettings));}catch(_){}
+    });
+  }
+  $('audioSettingsBtn').addEventListener('click',()=>{reflectAudioSettings();$('audioSettings').showModal();});
+  const closeAudioSettings=()=>$('audioSettings').close();
+  $('audioSettingsClose').addEventListener('click',closeAudioSettings);
+  $('audioSettingsDone').addEventListener('click',closeAudioSettings);
+  $('audioSettings').addEventListener('click',event=>{
+    if(event.target===$('audioSettings'))closeAudioSettings();
+  });
+  reflectAudioSettings();
+  for(const [key,filename] of Object.entries(soundFiles)){
+    const track=new Audio(new URL('./'+filename,document.baseURI).href);
+    track.preload='auto';
+    track.loop=key!=='start';
+    track.volume=key==='bgm'?audioSettings.bgm/100:soundVolumes[key]*audioSettings.se/100;
+    track.addEventListener('error',()=>{
+      if(warnedSounds.has(key))return;
+      warnedSounds.add(key);
+      console.warn('音声ファイルを読み込めませんでした。HTMLと同じフォルダに配置してください:',filename);
+    },{once:true});
+    soundTracks[key]=track;
+  }
+  function playAudioTrack(key){
+    const track=soundTracks[key];
+    if(!track || track.error)return;
+    try{
+      const result=track.play();
+      if(result && typeof result.catch==='function')result.catch(err=>{
+        // Pausing the track before a pending play promise settles is normal.
+        if(err && err.name==='AbortError')return;
+        if(!warnedSounds.has(key)){
+          warnedSounds.add(key);
+          console.warn('音声を再生できませんでした:',soundFiles[key],err);
+        }
+      });
+    }catch(err){
+      if(!warnedSounds.has(key)){
+        warnedSounds.add(key);
+        console.warn('音声を再生できませんでした:',soundFiles[key],err);
+      }
+    }
+  }
+  function stopAudioTrack(key){
+    const track=soundTracks[key];
+    if(!track)return;
+    track.pause();
+    try{track.currentTime=0;}catch(_){}
+  }
+  function setAudioLoop(key,enabled){
+    if(!audioActivated)enabled=false;
+    if(activeLoops[key]===enabled)return;
+    activeLoops[key]=enabled;
+    if(enabled){
+      try{soundTracks[key].currentTime=0;}catch(_){}
+      playAudioTrack(key);
+    }else stopAudioTrack(key);
+  }
+  // Called synchronously inside the START/RESET click's user gesture, allowing
+  // browsers to start MP3 playback without relying on autoplay permissions.
+  function playStartAndBgm(){
+    audioActivated=true;
+    if(soundTracks.bgm.paused)playAudioTrack('bgm');
+    stopAudioTrack('start');
+    playAudioTrack('start'); // no loop, one shot per button press
+  }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      for(const key of Object.keys(activeLoops))setAudioLoop(key,false);
+      soundTracks.bgm.pause();
+      soundTracks.start.pause();
+    }else if(audioActivated && soundTracks.bgm.paused){
+      playAudioTrack('bgm');
+    }
+  });
+  function syncMachineAudio(previousX,previousY,previousZ,previousMode){
+    if(!audioActivated)return;
+    if(document.hidden){
+      for(const key of Object.keys(activeLoops))setAudioLoop(key,false);
+      return;
+    }
+    const dx=machine.x-previousX, dz=machine.z-previousZ;
+    const dy=machine.y-previousY;
+    const horizontalMoved=Math.hypot(dx,dz)>0.00002;
+    // Player-controlled horizontal movement and post-grab transport have different sounds.
+    // Neither is played during homing or on state-transition boundary frames.
+    const playerMovement=previousMode==='move'&&state.mode==='move';
+    const postGrabTransport=previousMode==='return'&&state.mode==='return';
+    setAudioLoop('move',playerMovement&&horizontalMoved);
+    setAudioLoop('move2',postGrabTransport&&horizontalMoved);
+    setAudioLoop('down',state.mode==='lower'&&dy<-.00002);
+    // Returning to the starting position can involve actual vertical lifting.
+    setAudioLoop('up',(state.mode==='lift'||state.mode==='homing')&&dy>.00002);
+    setAudioLoop('open',state.mode==='release');
+    // Win sound plays for the visible award animation, then ends on Continue.
+    setAudioLoop('get',$('winOverlay').classList.contains('show'));
+  }
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const approach=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
   const chute={x:chuteCenterX,z:chuteCenterZ};
@@ -1607,9 +1781,17 @@ function startFullGame() {
   $('prizeMenuBtn').addEventListener('click',()=>{refreshPrizeMenu();$('prizeMenu').showModal();});
   $('prizeMenuClose').addEventListener('click',()=>$('prizeMenu').close());
   for(const button of document.querySelectorAll('[data-prize]'))button.addEventListener('click',()=>selectPrize(Number(button.dataset.prize)));
-  $('startBtn').addEventListener('click',startGame);
+  $('startBtn').addEventListener('click',()=>{
+    if(state.mode!=='idle'&&state.mode!=='result')return;
+    playStartAndBgm();
+    startGame();
+  });
   $('dropBtn').addEventListener('click',pressDrop);
-  $('resetBtn').addEventListener('click',resetGame);
+  $('resetBtn').addEventListener('click',()=>{
+    if(state.mode==='homing')return;
+    playStartAndBgm();
+    resetGame();
+  });
 
   // Velocity-based joystick control: the stick determines the desired velocity,
   // rather than directly teleporting the machine. Releasing the stick returns it
@@ -1790,6 +1972,7 @@ function startFullGame() {
   function animate(now){
     requestAnimationFrame(animate);
     let dt=(now-lastTime)/1000; lastTime=now; dt=Math.min(.04,Math.max(0,dt));
+    const audioPreviousX=machine.x, audioPreviousY=machine.y, audioPreviousZ=machine.z, audioPreviousMode=state.mode;
     updateGame(dt);
     updateClawSpring(dt||fixed);
     updateCeilingFingers(dt);
@@ -1814,6 +1997,7 @@ function startFullGame() {
       f.mesh.quaternion.set(f.body.quaternion.x,f.body.quaternion.y,f.body.quaternion.z,f.body.quaternion.w);
     }
     checkPrizeChute();
+    syncMachineAudio(audioPreviousX,audioPreviousY,audioPreviousZ,audioPreviousMode);
     // Restrained idle motion in the light strip adds a little arcade atmosphere.
     materials.edge.emissiveIntensity=.28+.10*(Math.sin(now*.002)+1);
     renderer.render(scene,camera);
@@ -1830,3 +2014,4 @@ else window.addEventListener('prize-libs-ready', startFullGame, {once:true});
 </script>
 </body>
 </html>
+
