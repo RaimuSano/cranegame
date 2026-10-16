@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#fff2f8" />
 <title>ふわもこキャッチャー — 3D UFO CATCHER</title>
-<!-- Audio: BGM.mp3, start.mp3, press.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, closed.mp3, open.mp3, timeup.mp3, get.mp3, miss.mp3 (beside this HTML). -->
+<!-- Audio: BGM1.mp3, BGM2.mp3, BGM3.mp3, start.mp3, press.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, closed.mp3, open.mp3, timeup.mp3, get.mp3, miss.mp3 (beside this HTML). -->
 <style>
   :root {
     --bg: #fff3fa; --panel: rgba(255, 250, 255, .94); --line: rgba(216, 151, 198, .34);
@@ -216,6 +216,13 @@
   .prize-choice[aria-pressed="true"]{border-color:#ce79bd;box-shadow:0 0 0 3px #eec9ea55;}.prize-choice[aria-pressed="true"] em{background:#ce79bd;color:#fff;}.prize-choice:disabled{opacity:.55;cursor:not-allowed;}
   #prizeMenuBtn{font-weight:800;cursor:pointer;}#prizeMenuBtn:disabled{opacity:.5;}
   @media(max-width:420px){.top-right{gap:4px;}.top-right .pill{padding:7px;font-size:8px;}.top-right .pill:first-child{display:block;}.top-right #roundNum{display:none;}.menu-heading h2{font-size:17px;}#prizeMenu{padding:18px;}.prize-choice b{font-size:11px;}}
+  /* Full viewport result dialog; only the artwork/text scrolls. */
+  .win-overlay {position:fixed;z-index:1000;inset:0;height:100%;height:100dvh;padding:12px;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));overflow:hidden;}
+  .win-card {display:flex;flex-direction:column;min-height:0;max-height:100%;padding:16px;overflow:hidden;}
+  .win-content {min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;overflow-wrap:anywhere;}
+  .win-attempts {font-weight:800;color:#8b5a9d;margin:8px 0 16px;}
+  #winContinue {flex:0 0 auto;margin-top:8px;white-space:normal;}
+  @media(max-height:500px){.win-bear{font-size:70px}.win-card{padding:10px}.win-title{font-size:24px}.win-caption{margin:5px 0}.win-attempts{margin:6px 0}}
 </style>
 </head>
 <body>
@@ -248,10 +255,13 @@
     <div class="toast" id="toast"><b id="toastTitle">READY?</b><span id="toastText">STARTでゲーム開始</span></div>
     <div class="win-overlay" id="winOverlay" role="dialog" aria-modal="true" aria-labelledby="winTitle">
       <div class="win-card">
+        <div class="win-content">
         <div class="win-kicker">♡ やったね！ GET ♡</div>
         <div class="win-bear" aria-hidden="true">🧸</div><div style="font-size:18px;letter-spacing:.25em;color:#f2b7d7;margin:-2px 0 6px">✧･ﾟ: *✧･ﾟ:* ♡ *:･ﾟ✧*:･ﾟ✧</div>
         <div class="win-title" id="winTitle">GET!!</div>
         <div class="win-caption" id="winCaption">くまのぬいぐるみを獲得！</div>
+        <p id="winAttempts" class="win-attempts" aria-live="polite"></p>
+        </div>
         <button class="btn btn-primary" id="winContinue">やった！ 続ける</button>
       </div>
     </div>
@@ -299,6 +309,8 @@
     <button type="button" class="audio-close" id="audioSettingsClose" aria-label="音量設定を閉じる">×</button>
   </div>
   <div class="audio-volume-item">
+    <label class="audio-volume-row" for="bgmSelect">BGMを選択</label>
+    <select id="bgmSelect" style="width:100%;min-height:44px;margin-bottom:16px;font:inherit"><option value="1">BGM 1</option><option value="2">BGM 2</option><option value="3">BGM 3</option></select>
     <label class="audio-volume-row" for="bgmVolume"><span>♪ BGM</span><output id="bgmVolumeValue" for="bgmVolume">40%</output></label>
     <input id="bgmVolume" type="range" min="0" max="100" step="1" value="40" aria-label="BGM音量" />
     <p class="audio-volume-desc">ゲーム中に流れるBGMの音量</p>
@@ -306,7 +318,7 @@
   <div class="audio-volume-item">
     <label class="audio-volume-row" for="seVolume"><span>♫ SE（効果音）</span><output id="seVolumeValue" for="seVolume">100%</output></label>
     <input id="seVolume" type="range" min="0" max="100" step="1" value="100" aria-label="効果音音量" />
-    <p class="audio-volume-desc">BGM.mp3以外のすべての効果音をまとめて調整</p>
+    <p class="audio-volume-desc">BGM以外のすべての効果音をまとめて調整</p>
   </div>
   <div class="audio-settings-footer"><button type="button" class="audio-settings-done" id="audioSettingsDone">完了</button></div>
 </dialog>
@@ -508,6 +520,9 @@ function startFullGame() {
     (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
+  // Used by the cabinet-safe home-position calculation during initialization.
+  // Keep this helper ABOVE its first use (otherwise JS temporal dead zone halts startup).
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const fallbackRenderer = window.__prizeFallback && window.__prizeFallback.getRenderer();
   const canvas = (window.__prizeFallback && window.__prizeFallback.getCanvas()) || $('scene');
   const loading = $('loading');
@@ -1023,7 +1038,7 @@ function startFullGame() {
   let selectedPrizeIndex=0;
   // All prize types start in the back-left area, with room for their wide
   // collision shapes to settle without intersecting the cabinet walls.
-  function selectedPrizeDefinition(index){return {...prizeDefs[index],x:-1.48,z:-0.50};}
+  function selectedPrizeDefinition(index){return {...prizeDefs[index],x:-1.48,z:-.50};}
   createPrize(selectedPrizeDefinition(selectedPrizeIndex),0);
 
   // Each claw is ONE rigid L-shaped piece. The only moving joint is the root.
@@ -1137,6 +1152,48 @@ function startFullGame() {
   }
   for(let i=0;i<3;i++) makeLClaw();
 
+  // The fingers are kinematic: Cannon.js cannot stop a kinematic-vs-static
+  // cabinet collision. A prize caught between such a finger and a wall used
+  // to receive contradictory, effectively infinite-mass impulses.
+  // Measure the actual TWO-BOX finger silhouette at every hinge angle and
+  // reserve that much space inside the four cabinet walls. This is a trolley
+  // travel stop, not a fake force or a modification to the grabbing physics.
+  function computeClawSafeTravel(){
+    const extent={minX:Infinity,maxX:-Infinity,minZ:Infinity,maxZ:-Infinity};
+    for(let i=0;i<fingerUnits.length;i++){
+      const a=Math.PI*2*i/3+Math.PI/6;
+      const radial=new CANNON.Quaternion();
+      radial.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
+      for(let k=0;k<=20;k++){
+        const hinge=new CANNON.Quaternion();
+        hinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),1.10+(0.46-1.10)*k/20);
+        const rotation=new CANNON.Quaternion();radial.mult(hinge,rotation);
+        const body=fingerUnits[i].body;
+        for(let j=0;j<body.shapes.length;j++){
+          const half=body.shapes[j].halfExtents;
+          const off=body.shapeOffsets[j];
+          for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]){
+            const corner=new CANNON.Vec3(off.x+sx*half.x,off.y+sy*half.y,off.z+sz*half.z);
+            const worldPoint=new CANNON.Vec3();rotation.vmult(corner,worldPoint);
+            extent.minX=Math.min(extent.minX,worldPoint.x);
+            extent.maxX=Math.max(extent.maxX,worldPoint.x);
+            extent.minZ=Math.min(extent.minZ,worldPoint.z);
+            extent.maxZ=Math.max(extent.maxZ,worldPoint.z);
+          }
+        }
+      }
+    }
+    // The inner collision faces of the four cabinet walls (see physicsBox).
+    const buffer=.065;
+    return {
+      minX:-2.55+buffer-extent.minX,
+      maxX: 2.55-buffer-extent.maxX,
+      minZ:-2.05+buffer-extent.minZ,
+      maxZ: 2.05-buffer-extent.maxZ
+    };
+  }
+  const clawSafeTravel=computeClawSafeTravel();
+
   function setLClaw(unit, root, radialAngle, openAmount, dt){
     // The L itself is rigid. Only its root hinge rotates.
     // Positive radial direction = outward. Closing rotates the whole L so the
@@ -1179,7 +1236,10 @@ function startFullGame() {
 
   // 0 = fully open, 1 = fully closed. Keep the claw open whenever it is initialized/reset.
   const DEFAULT_CLAW_OPEN = 0;
-  const HOME_X=-2.05, HOME_Z=1.38; // left-front starting position
+  // Park as close as possible to the original left-front home without
+  // letting the open fingers project through the cabinet side/front walls.
+  const HOME_X=clamp(-2.05,clawSafeTravel.minX,clawSafeTravel.maxX);
+  const HOME_Z=clamp(1.38,clawSafeTravel.minZ,clawSafeTravel.maxZ);
   const machine = {x:HOME_X, z:HOME_Z, y:5.20, close:DEFAULT_CLAW_OPEN};
   // Each finger has its own physical closure limit. A plush collision can
   // stop one finger while the other two continue closing.
@@ -1189,10 +1249,12 @@ function startFullGame() {
   const fingerHadRealContact=[false,false,false];
   // Gap-resume logic is enabled only from the grab phase until the ceiling.
   const fingerGapResumeEnabled={value:false};
+  // 上昇中の再把持: 表面間距離、閉じ量/秒、接触余白（ゲーム内単位）。
+  const liftRegrip={resumeGap:.1,closeSpeed:.80,contactMargin:.002};
   const ceilingControl={active:false,releasing:false,elapsed:0,ticks:0,targets:[0,0,0]};
   const clawServo = { value:0, velocity:0, target:0 };
   const homeY=5.20;
-  const clawMinY=1.45;
+  const clawMinY=1.40;
   const clawSpring = { stiffness:58, damping:11 };
   function setClawTarget(target){ clawServo.target=clamp(target,0,1); }
   function updateClawSpring(dt){
@@ -1203,49 +1265,42 @@ function startFullGame() {
     clawServo.value = clamp(clawServo.value+clawServo.velocity*dt,0,1);
     machine.close=clawServo.value;
   }
-  function plushSphereContactsFinger(fingerIndex, openAmount){
-    const candidates=prizes.filter(p=>!p.won);
-    if(!candidates.length) return false;
+  // Precise compound-sphere vs. oriented-BOX probe for a future finger angle.
+  // The old centerline samples missed box edges/corners and sometimes noticed
+  // the plush only after the kinematic arm was already inside it. Preventing
+  // that overtravel is especially important when a plush backs onto a wall.
+  function plushSphereContactsFinger(fingerIndex, openAmount, margin=.018){
     const unit=fingerUnits[fingerIndex];
-    const a=(Math.PI*2*fingerIndex/3)+Math.PI/6;
-    const openAngle=1.10, closedAngle=0.46;
-    const hingeAngle=openAngle+(closedAngle-openAngle)*openAmount;
+    const a=Math.PI*2*fingerIndex/3+Math.PI/6;
+    const hingeAngle=1.10+(0.46-1.10)*openAmount;
     const qHinge=new CANNON.Quaternion();
     qHinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),hingeAngle);
     const qRad=new CANNON.Quaternion();
     qRad.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
-    const q=new CANNON.Quaternion();
-    qRad.mult(qHinge,q);
+    const q=new CANNON.Quaternion();qRad.mult(qHinge,q);
+    const inverse=new CANNON.Quaternion();q.inverse(inverse);
     const root=new CANNON.Vec3(machine.x,machine.y-.12,machine.z);
-    const longLen=1.00*1.2, shortLen=.50*1.2;
-    const samples=[];
-    // Sample both rigid L segments. This is only a contact probe: Cannon.js
-    // remains responsible for the actual collision response and forces.
-    for(let k=0;k<=12;k++){
-      const t=k/12;
-      samples.push(new CANNON.Vec3(0,-longLen*t,0));
-    }
-    for(let k=0;k<=8;k++){
-      const t=k/8;
-      samples.push(new CANNON.Vec3(-shortLen*t,-longLen,0));
-    }
-    const worldPoint=new CANNON.Vec3();
-    for(const local of samples){
-      q.vmult(local,worldPoint);
-      worldPoint.vadd(root,worldPoint);
-      for(const prize of candidates){
-      const body=prize.body;
-      for(let j=0;j<body.shapes.length;j++){
-        const shape=body.shapes[j];
-        if(!(shape instanceof CANNON.Sphere)) continue;
-        const off=body.shapeOffsets[j];
-        const center=body.shapeOrientations[j] ? new CANNON.Vec3() : null;
-        const wc=new CANNON.Vec3();
-        body.quaternion.vmult(off,wc);
-        wc.vadd(body.position,wc);
-        const r=shape.radius + .012;
-        if(worldPoint.distanceTo(wc)<=r) return true;
-      }
+    const worldCenter=new CANNON.Vec3();
+    const local=new CANNON.Vec3();
+    for(const prize of prizes){
+      if(prize.won)continue;
+      const b=prize.body;
+      for(let j=0;j<b.shapes.length;j++){
+        const sphere=b.shapes[j];
+        if(!(sphere instanceof CANNON.Sphere))continue;
+        b.quaternion.vmult(b.shapeOffsets[j],worldCenter);
+        worldCenter.vadd(b.position,worldCenter);
+        worldCenter.vsub(root,local);
+        inverse.vmult(local,local);
+        for(let k=0;k<unit.body.shapes.length;k++){
+          const box=unit.body.shapes[k];
+          const offset=unit.body.shapeOffsets[k];
+          const dx=Math.max(0,Math.abs(local.x-offset.x)-box.halfExtents.x);
+          const dy=Math.max(0,Math.abs(local.y-offset.y)-box.halfExtents.y);
+          const dz=Math.max(0,Math.abs(local.z-offset.z)-box.halfExtents.z);
+          const safeRadius=sphere.radius+margin;
+          if(dx*dx+dy*dy+dz*dz<=safeRadius*safeRadius)return true;
+        }
       }
     }
     return false;
@@ -1287,6 +1342,28 @@ function startFullGame() {
         fingerBlocked[i]=false;
       } else if(ceilingControl.releasing){
         fingerClose[i]=approach(fingerClose[i],0,.8*dt);
+      } else if(fingerGapResumeEnabled.value && state.mode==='lift'){
+        // Measure the actual finger surface, never the fully closed pose.
+        if(fingerContactLimit[i]!==null && fingerPrizeDistance(i)>liftRegrip.resumeGap){
+          fingerContactLimit[i]=null;
+          fingerHadRealContact[i]=false;
+        }
+        const current=fingerClose[i];
+        const target=fingerContactLimit[i]===null ? machine.close : Math.min(machine.close,fingerContactLimit[i]);
+        let next=approach(current,target,liftRegrip.closeSpeed*dt);
+        if(next>current && plushSphereContactsFinger(i,next,liftRegrip.contactMargin)){
+          // Search only this small step, preserving the current pose on contact.
+          let lo=current,hi=next;
+          for(let n=0;n<8;n++){
+            const mid=(lo+hi)*.5;
+            if(plushSphereContactsFinger(i,mid,liftRegrip.contactMargin)) hi=mid;
+            else lo=mid;
+          }
+          next=lo;
+          fingerContactLimit[i]=next;
+        }
+        fingerClose[i]=next;
+        fingerBlocked[i]=fingerContactLimit[i]!==null;
       } else if(fingerGapResumeEnabled.value){
         if(fingerContactLimit[i]===null){
           const first=findFirstContactClosure(i);
@@ -1378,10 +1455,10 @@ function startFullGame() {
     while(ceilingControl.elapsed>=.05-1e-9){
       ceilingControl.elapsed=Math.max(0,ceilingControl.elapsed-.05);
       ceilingControl.ticks++;
-      const openChance=ceilingControl.ticks<=20 ? .60 : .15;
+      const openChance=ceilingControl.ticks<=15 ? .65 : .25;
       for(let i=0;i<3;i++){
         if(gaps[i]<=.1 && Math.random()<openChance){
-          ceilingControl.targets[i]=Math.max(0,Math.min(fingerClose[i],ceilingControl.targets[i])-.05);
+          ceilingControl.targets[i]=Math.max(0,Math.min(fingerClose[i],ceilingControl.targets[i])-.04);
         }
       }
     }
@@ -1399,6 +1476,24 @@ function startFullGame() {
     if(state.ceilingReached) return; // After reaching the ceiling, only physical contact holds the prize.
     const b=p.body;
     const points=currentClawPoints();
+    // Plush can slide UP a wall, but the motor must not keep driving it INTO
+    // the wall. Fade only the outward component of artificial grip forces,
+    // based on the compound plush's real AABB. Gravity and Cannon contacts
+    // are unchanged, and this does not attach or teleport the toy.
+    b.computeAABB();
+    const aabb=b.aabb;
+    const fadeDistance=.18;
+    const wallFactors={
+      left:clamp((aabb.lowerBound.x+2.55)/fadeDistance,0,1),
+      right:clamp((2.55-aabb.upperBound.x)/fadeDistance,0,1),
+      back:clamp((aabb.lowerBound.z+2.05)/fadeDistance,0,1),
+      front:clamp((2.05-aabb.upperBound.z)/fadeDistance,0,1)
+    };
+    function applySoftGripForce(x,y,z){
+      if(x<0)x*=wallFactors.left;else x*=wallFactors.right;
+      if(z<0)z*=wallFactors.back;else z*=wallFactors.front;
+      b.applyForce(new CANNON.Vec3(x,y,z),new CANNON.Vec3(0,0,0));
+    }
 
     // Grip only after the closing claws have made real Cannon.js contacts
     // with at least two fingers. The distance check is only used to build the
@@ -1411,7 +1506,7 @@ function startFullGame() {
       // Remember actual contact, not just the geometric prediction. If a finger
       // that was touching the plush loses contact, treat the new gap as room to
       // close again. This rule is active only during grip/lift before the ceiling.
-      const gapRuleActive=fingerGapResumeEnabled.value && !state.ceilingReached && (state.mode==='grip'||state.mode==='lift');
+      const gapRuleActive=fingerGapResumeEnabled.value && !state.ceilingReached && state.mode==='grip'; // Lift uses incremental surface-gap control in updateClawGeometry.
       for(let i=0;i<points.length;i++){
         const finger=fingerUnits[i];
         const realContact=touchingPrize(finger.body,p);
@@ -1457,7 +1552,7 @@ function startFullGame() {
         const nl=Math.hypot(nx,ny,nz)||1;
         nx/=nl; ny/=nl; nz/=nl;
         const motorPressure=clamp((machine.close-(fingerContactLimit[i]||0))*42+7,7,24);
-        b.applyForce(new CANNON.Vec3(nx*motorPressure,ny*motorPressure,nz*motorPressure),new CANNON.Vec3(0,0,0));
+        applySoftGripForce(nx*motorPressure,ny*motorPressure,nz*motorPressure);
         // Plush-to-metal friction resists sliding along the fingers, but remains
         // finite so a badly aligned prize can still slip free.
         const vn=b.velocity.x*nx+b.velocity.y*ny+b.velocity.z*nz;
@@ -1465,7 +1560,7 @@ function startFullGame() {
         const tl=Math.hypot(tx,ty,tz);
         if(tl>.0001){
           const frictionForce=Math.min(10,tl*5.5);
-          b.applyForce(new CANNON.Vec3(-tx/tl*frictionForce,-ty/tl*frictionForce,-tz/tl*frictionForce),new CANNON.Vec3(0,0,0));
+          applySoftGripForce(-tx/tl*frictionForce,-ty/tl*frictionForce,-tz/tl*frictionForce);
         }
       }
     }
@@ -1486,11 +1581,11 @@ function startFullGame() {
 
     const dx=ax-b.position.x, dy=ay-b.position.y, dz=az-b.position.z;
     const k=18, d=4.2;
-    b.applyForce(new CANNON.Vec3(
+    applySoftGripForce(
       dx*k-b.velocity.x*d,
       dy*k-b.velocity.y*d,
       dz*k-b.velocity.z*d
-    ),new CANNON.Vec3(0,0,0));
+    );
 
     // Let collision forces and gravity determine rotation; no forced return
     // toward the prize's original display orientation.
@@ -1504,7 +1599,7 @@ function startFullGame() {
   // Dedicated looping tracks are switched by measured physical movement,
   // not by a stale game phase (so sounds stop when each motion stops).
   const soundFiles={
-    bgm:'BGM.mp3',
+    bgm:'BGM1.mp3',
     start:'start.mp3', press:'press.mp3',
     move:'move.mp3', move2:'move2.mp3',
     down:'down.mp3', up:'up.mp3',
@@ -1519,18 +1614,20 @@ function startFullGame() {
   let audioMixer=null;
   const clawAudioHold={close:0,open:0};
   const audioStorageKey='fuwamoco-volume-v1';
-  const audioSettings={bgm:40,se:100};
+  const audioSettings={bgm:40,se:100,track:1};
   try{
     const saved=JSON.parse(localStorage.getItem(audioStorageKey)||'null');
     if(saved&&typeof saved==='object'){
+      if([1,2,3].includes(saved.track))audioSettings.track=saved.track;
       for(const key of ['bgm','se']){
         if(Number.isFinite(saved[key]))audioSettings[key]=Math.round(Math.max(0,Math.min(100,saved[key])));
       }
     }
   }catch(_){/* Private mode/file URLs can disallow storage. */}
+  soundFiles.bgm='BGM'+audioSettings.track+'.mp3';
   const masterVolume=key=>(key==='bgm'?audioSettings.bgm:audioSettings.se)/100;
   function applyAudioVolumes(){
-    // BGM.mp3 is the ONLY file controlled by BGM. All other files use SE.
+    // The selected BGM file uses BGM volume. All other files use SE.
     // WebAudio GainNodes work even on mobile Safari, which ignores
     // HTMLMediaElement.volume. A direct-element fallback supports file://.
     if(audioMixer){
@@ -1543,6 +1640,7 @@ function startFullGame() {
     }
   }
   function reflectAudioSettings(){
+    $('bgmSelect').value=String(audioSettings.track);
     $('bgmVolume').value=String(audioSettings.bgm);
     $('seVolume').value=String(audioSettings.se);
     $('bgmVolumeValue').textContent=audioSettings.bgm+'%';
@@ -1607,6 +1705,17 @@ function startFullGame() {
     },{once:true});
     soundTracks[key]=track;
   }
+  $('bgmSelect').addEventListener('change',()=>{
+    audioSettings.track=Number($('bgmSelect').value);
+    soundFiles.bgm='BGM'+audioSettings.track+'.mp3';
+    const track=soundTracks.bgm;
+    track.pause();
+    track.src=new URL('./'+soundFiles.bgm,document.baseURI).href;
+    track.load();
+    warnedSounds.delete('bgm');
+    if(audioActivated&&!document.hidden){enableAudioMixer();playAudioTrack('bgm');}
+    try{localStorage.setItem(audioStorageKey,JSON.stringify(audioSettings));}catch(_){}
+  });
   function playAudioTrack(key){
     const track=soundTracks[key];
     if(!track||track.error)return;
@@ -1706,9 +1815,11 @@ function startFullGame() {
     setAudioLoop('open',releasingAtChute&&clawAudioHold.open>0);
     setAudioLoop('get',$('winOverlay').classList.contains('show'));
   }
-  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const approach=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
-  const chute={x:chuteCenterX,z:chuteCenterZ};
+  // The chute is wide enough to release slightly inward of its center; keep
+  // the opening claws clear of the front cabinet wall during transport too.
+  const chute={x:clamp(chuteCenterX,clawSafeTravel.minX,clawSafeTravel.maxX),
+               z:clamp(chuteCenterZ,clawSafeTravel.minZ,clawSafeTravel.maxZ)};
   const transport={verticalSpeed:0,returnSpeed:0};
   function hoistToward(target,maxSpeed,dt){
     const distance=Math.abs(target-machine.y);
@@ -1810,8 +1921,9 @@ function startFullGame() {
     const speed=1.4;
     if(state.homePhase==='raise'){
       const distance=Math.max(0,homeY-machine.y);
-      const travel=Math.min(distance,speed*dt);
-      machine.y+=travel;dt-=travel/speed;
+      const verticalSpeed=speed*1.2;
+      const travel=Math.min(distance,verticalSpeed*dt);
+      machine.y+=travel;dt-=travel/verticalSpeed;
       if(distance>travel+1e-8)return;
       machine.y=homeY;state.homePhase='travel';
     }
@@ -1916,9 +2028,12 @@ function startFullGame() {
     $('winTitle').textContent='GET!!';
     document.querySelector('.win-bear').textContent=({bear:'🧸',bunny:'🐰',dog:'🐶',sprite:'🌟'})[prize.def.type]||'🎁';
     $('winCaption').textContent=`「${prize.def.name}」を獲得！ おめでとう！`;
+    $('winAttempts').textContent=`獲得までのプレイ回数：${state.round}回`;
     overlay.classList.add('show');
+    $('winContinue').focus({preventScroll:true});
   }
   function hideWinOverlay(){ $('winOverlay').classList.remove('show'); }
+  document.body.appendChild($('winOverlay'));
   $('winContinue').addEventListener('click',hideWinOverlay);
   function finishRound(){
     state.mode='result'; state.timeLeft=20;
@@ -1937,14 +2052,16 @@ function startFullGame() {
           const kx=(keysDown.has('ArrowRight')||keysDown.has('d')?1:0)-(keysDown.has('ArrowLeft')||keysDown.has('a')?1:0);
           const kz=(keysDown.has('ArrowDown')||keysDown.has('s')?1:0)-(keysDown.has('ArrowUp')||keysDown.has('w')?1:0);
           if(kx||kz){const n=Math.hypot(kx,kz); const speed=1.45; vx=kx/n*speed; vz=kz/n*speed;}
-          machine.x=clamp(machine.x+vx*dt,-2.15,2.15);
-          machine.z=clamp(machine.z+vz*dt,-1.00,1.50);
+          // Model-based travel stops: even at the rear corners, no part of
+          // any L-shaped finger can enter a static wall during lowering/grip.
+          machine.x=clamp(machine.x+vx*dt,Math.max(-2.15,clawSafeTravel.minX),Math.min(2.15,clawSafeTravel.maxX));
+          machine.z=clamp(machine.z+vz*dt,Math.max(-1.7,clawSafeTravel.minZ),Math.min(1.50,clawSafeTravel.maxZ));
           state.timeLeft-=dt;
         if(state.timeLeft<=0){playOneShot('timeup');state.timeLeft=0;state.mode='lower';transport.verticalSpeed=0;state.loweredByTimer=true;stopMachine();showToast('TIME UP','操作時間終了。アームが自動で降下します。',1.7);}
         }
         break;
       case 'lower':
-        hoistToward(clawMinY,.68,dt);
+        hoistToward(clawMinY,.68*1.2,dt);
         if(machine.y<=clawMinY+.001){machine.y=clawMinY;state.mode='grip';state.grabElapsed=0;clearGrip();for(let i=0;i<3;i++){fingerContactLimit[i]=null;fingerHadRealContact[i]=false;fingerBlocked[i]=false;} fingerGapResumeEnabled.value=true;setClawTarget(1);stopMachine();showToast('GRIP!','接触中は停止し、隙間ができると再び閉じます。',1.1);}
         break;
       case 'grip':
@@ -1956,7 +2073,7 @@ function startFullGame() {
 
       case 'lift':
         setClawTarget(1);
-        hoistToward(homeY,.90,dt);
+        hoistToward(homeY,.90*1.2,dt);
 
         if(machine.y>=homeY-.001){
           machine.y=homeY;
@@ -2039,6 +2156,28 @@ function startFullGame() {
       if(contact.enabled!==false) markClawContact(contact.bi,contact.bj);
     }
     updateGripSprings(fixed);
+  });
+  // Last-resort numerical guard after EACH physics substep. It never alters
+  // ordinary motion, but prevents a single bad contact impulse from turning
+  // into explosive linear/angular speed on subsequent solver iterations.
+  world.addEventListener('postStep',()=>{
+    for(const prize of prizes){
+      const b=prize.body;
+      if(!Number.isFinite(b.position.x+b.position.y+b.position.z+
+                          b.velocity.x+b.velocity.y+b.velocity.z+
+                          b.angularVelocity.x+b.angularVelocity.y+b.angularVelocity.z)){
+        b.position.set(prize.def.x,initialPrizeY(prize.def),prize.def.z);
+        b.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),prize.def.rot);
+        b.velocity.set(0,0,0); b.angularVelocity.set(0,0,0);
+        b.force.set(0,0,0); b.torque.set(0,0,0);
+        b.aabbNeedsUpdate=true;b.wakeUp();
+        continue;
+      }
+      const linearSpeed=b.velocity.length();
+      if(linearSpeed>5.5)b.velocity.scale(5.5/linearSpeed,b.velocity);
+      const spinSpeed=b.angularVelocity.length();
+      if(spinSpeed>9)b.angularVelocity.scale(9/spinSpeed,b.angularVelocity);
+    }
   });
   function animate(now){
     requestAnimationFrame(animate);
