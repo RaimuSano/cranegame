@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#fff2f8" />
 <title>ふわもこキャッチャー — 3D UFO CATCHER</title>
-<!-- Audio: Place BGM.mp3, start.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, get.mp3 and open.mp3 beside this HTML. -->
+<!-- Audio: BGM.mp3, start.mp3, press.mp3, move.mp3, move2.mp3, down.mp3, up.mp3, close.mp3, open.mp3, timeup.mp3, get.mp3, miss.mp3 (beside this HTML). -->
 <style>
   :root {
     --bg: #fff3fa; --panel: rgba(255, 250, 255, .94); --line: rgba(216, 151, 198, .34);
@@ -306,7 +306,7 @@
   <div class="audio-volume-item">
     <label class="audio-volume-row" for="seVolume"><span>♫ SE（効果音）</span><output id="seVolumeValue" for="seVolume">100%</output></label>
     <input id="seVolume" type="range" min="0" max="100" step="1" value="100" aria-label="効果音音量" />
-    <p class="audio-volume-desc">スタート・移動・上昇下降・獲得・開放音をまとめて調整</p>
+    <p class="audio-volume-desc">BGM.mp3以外のすべての効果音をまとめて調整</p>
   </div>
   <div class="audio-settings-footer"><button type="button" class="audio-settings-done" id="audioSettingsDone">完了</button></div>
 </dialog>
@@ -1500,19 +1500,24 @@ function startFullGame() {
   // ---------------------- Game state and controls ----------------------
   const state={mode:'idle',timeLeft:20,round:0,score:0,grabElapsed:0,releaseElapsed:0,topPauseElapsed:0,toastTimer:0,loweredByTimer:false,roundWon:0,ceilingReached:false};
   // ---------------------- Event-driven MP3 audio ----------------------
-  // Put the files beside this HTML; filenames (including capital BGM) are exact.
-  // A persistent Audio element per track avoids reloading/decode churn and gaps
-  // when the render loop changes state at 60/120 fps.
+  // MP3 filenames are case-sensitive. Put all MP3s next to this HTML.
+  // Dedicated looping tracks are switched by measured physical movement,
+  // not by a stale game phase (so sounds stop when each motion stops).
   const soundFiles={
-    bgm:'BGM.mp3', start:'start.mp3', move:'move.mp3', move2:'move2.mp3',
-    down:'down.mp3', up:'up.mp3', get:'get.mp3', open:'open.mp3'
+    bgm:'BGM.mp3',
+    start:'start.mp3', press:'press.mp3',
+    move:'move.mp3', move2:'move2.mp3',
+    down:'down.mp3', up:'up.mp3',
+    close:'close.mp3', open:'open.mp3',
+    timeup:'timeup.mp3', get:'get.mp3', miss:'miss.mp3'
   };
-  const soundVolumes={bgm:.40,start:.78,move:.60,move2:.60,down:.66,up:.66,get:.82,open:.70};
+  const oneShotSounds=new Set(['start','press','timeup','miss']);
   const soundTracks={};
-  const activeLoops={move:false,move2:false,down:false,up:false,get:false,open:false};
+  const activeLoops={move:false,move2:false,down:false,up:false,close:false,open:false,get:false};
   const warnedSounds=new Set();
   let audioActivated=false;
-  // BGM and SE master gains are separate; keep each sound's existing mix level.
+  let audioMixer=null;
+  const clawAudioHold={close:0,open:0};
   const audioStorageKey='fuwamoco-volume-v1';
   const audioSettings={bgm:40,se:100};
   try{
@@ -1522,10 +1527,19 @@ function startFullGame() {
         if(Number.isFinite(saved[key]))audioSettings[key]=Math.round(Math.max(0,Math.min(100,saved[key])));
       }
     }
-  }catch(_){/* Local files or private browsing may block persistent storage. */}
+  }catch(_){/* Private mode/file URLs can disallow storage. */}
+  const masterVolume=key=>(key==='bgm'?audioSettings.bgm:audioSettings.se)/100;
   function applyAudioVolumes(){
+    // BGM.mp3 is the ONLY file controlled by BGM. All other files use SE.
+    // WebAudio GainNodes work even on mobile Safari, which ignores
+    // HTMLMediaElement.volume. A direct-element fallback supports file://.
+    if(audioMixer){
+      audioMixer.bgm.gain.value=audioSettings.bgm/100;
+      audioMixer.se.gain.value=audioSettings.se/100;
+    }
     for(const [key,track] of Object.entries(soundTracks)){
-      track.volume=Math.max(0,Math.min(1,key==='bgm'?audioSettings.bgm/100:soundVolumes[key]*audioSettings.se/100));
+      track.volume=audioMixer?1:masterVolume(key);
+      track.muted=!audioMixer && masterVolume(key)===0;
     }
   }
   function reflectAudioSettings(){
@@ -1534,14 +1548,44 @@ function startFullGame() {
     $('bgmVolumeValue').textContent=audioSettings.bgm+'%';
     $('seVolumeValue').textContent=audioSettings.se+'%';
   }
+  // Build the audio graph on the first real user gesture (START/RESET).
+  // Using only same-directory HTTPS/HTTP files avoids cross-origin silence.
+  function enableAudioMixer(){
+    if(audioMixer){
+      if(audioMixer.context.state==='suspended')audioMixer.context.resume().catch(()=>{});
+      return;
+    }
+    // Some browsers isolate local file: URLs; their ordinary Audio.volume
+    // is more reliable than routing opaque-origin files through WebAudio.
+    if(location.protocol==='file:')return;
+    const AudioContextType=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextType)return;
+    try{
+      const context=new AudioContextType();
+      const bgm=context.createGain(),se=context.createGain();
+      bgm.connect(context.destination);se.connect(context.destination);
+      for(const [key,track] of Object.entries(soundTracks)){
+        context.createMediaElementSource(track).connect(key==='bgm'?bgm:se);
+      }
+      audioMixer={context,bgm,se};
+      applyAudioVolumes();
+      if(context.state==='suspended')context.resume().catch(()=>{});
+    }catch(err){
+      console.warn('WebAudioミキサーを開始できませんでした。通常の音量設定を使用します。',err);
+      applyAudioVolumes();
+    }
+  }
   for(const key of ['bgm','se']){
-    $(key==='bgm'?'bgmVolume':'seVolume').addEventListener('input',event=>{
-      const value=Number(event.target.value);
+    const input=$(key==='bgm'?'bgmVolume':'seVolume');
+    const update=()=>{
+      const value=Number(input.value);
       audioSettings[key]=Number.isFinite(value)?Math.round(Math.max(0,Math.min(100,value))):0;
       applyAudioVolumes();
       reflectAudioSettings();
       try{localStorage.setItem(audioStorageKey,JSON.stringify(audioSettings));}catch(_){}
-    });
+    };
+    input.addEventListener('input',update);
+    input.addEventListener('change',update);
   }
   $('audioSettingsBtn').addEventListener('click',()=>{reflectAudioSettings();$('audioSettings').showModal();});
   const closeAudioSettings=()=>$('audioSettings').close();
@@ -1554,23 +1598,22 @@ function startFullGame() {
   for(const [key,filename] of Object.entries(soundFiles)){
     const track=new Audio(new URL('./'+filename,document.baseURI).href);
     track.preload='auto';
-    track.loop=key!=='start';
-    track.volume=key==='bgm'?audioSettings.bgm/100:soundVolumes[key]*audioSettings.se/100;
+    track.loop=!oneShotSounds.has(key);
+    track.volume=masterVolume(key);
     track.addEventListener('error',()=>{
       if(warnedSounds.has(key))return;
       warnedSounds.add(key);
-      console.warn('音声ファイルを読み込めませんでした。HTMLと同じフォルダに配置してください:',filename);
+      console.warn('効果音ファイルを読み込めませんでした（HTMLと同じフォルダを確認）:',filename);
     },{once:true});
     soundTracks[key]=track;
   }
   function playAudioTrack(key){
     const track=soundTracks[key];
-    if(!track || track.error)return;
+    if(!track||track.error)return;
     try{
       const result=track.play();
-      if(result && typeof result.catch==='function')result.catch(err=>{
-        // Pausing the track before a pending play promise settles is normal.
-        if(err && err.name==='AbortError')return;
+      if(result&&typeof result.catch==='function')result.catch(err=>{
+        if(err&&err.name==='AbortError')return;
         if(!warnedSounds.has(key)){
           warnedSounds.add(key);
           console.warn('音声を再生できませんでした:',soundFiles[key],err);
@@ -1590,7 +1633,7 @@ function startFullGame() {
     try{track.currentTime=0;}catch(_){}
   }
   function setAudioLoop(key,enabled){
-    if(!audioActivated)enabled=false;
+    if(!audioActivated||document.hidden)enabled=false;
     if(activeLoops[key]===enabled)return;
     activeLoops[key]=enabled;
     if(enabled){
@@ -1598,43 +1641,66 @@ function startFullGame() {
       playAudioTrack(key);
     }else stopAudioTrack(key);
   }
-  // Called synchronously inside the START/RESET click's user gesture, allowing
-  // browsers to start MP3 playback without relying on autoplay permissions.
+  function playOneShot(key){
+    if(!audioActivated||document.hidden)return;
+    stopAudioTrack(key);
+    playAudioTrack(key);
+  }
+  // Executed synchronously from START and RESET to honor autoplay policies.
   function playStartAndBgm(){
     audioActivated=true;
+    enableAudioMixer();
     if(soundTracks.bgm.paused)playAudioTrack('bgm');
-    stopAudioTrack('start');
-    playAudioTrack('start'); // no loop, one shot per button press
+    playOneShot('start');
   }
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){
       for(const key of Object.keys(activeLoops))setAudioLoop(key,false);
       soundTracks.bgm.pause();
-      soundTracks.start.pause();
-    }else if(audioActivated && soundTracks.bgm.paused){
+      for(const key of oneShotSounds)soundTracks[key].pause();
+      clawAudioHold.close=0;clawAudioHold.open=0;
+    }else if(audioActivated&&soundTracks.bgm.paused){
+      enableAudioMixer();
       playAudioTrack('bgm');
     }
   });
-  function syncMachineAudio(previousX,previousY,previousZ,previousMode){
+  function syncMachineAudio(previousX,previousY,previousZ,previousMode,previousFingerClose,dt){
     if(!audioActivated)return;
     if(document.hidden){
       for(const key of Object.keys(activeLoops))setAudioLoop(key,false);
       return;
     }
-    const dx=machine.x-previousX, dz=machine.z-previousZ;
-    const dy=machine.y-previousY;
+    const dx=machine.x-previousX,dz=machine.z-previousZ,dy=machine.y-previousY;
     const horizontalMoved=Math.hypot(dx,dz)>0.00002;
-    // Player-controlled horizontal movement and post-grab transport have different sounds.
-    // Neither is played during homing or on state-transition boundary frames.
-    const playerMovement=previousMode==='move'&&state.mode==='move';
-    const postGrabTransport=previousMode==='return'&&state.mode==='return';
-    setAudioLoop('move',playerMovement&&horizontalMoved);
-    setAudioLoop('move2',postGrabTransport&&horizontalMoved);
-    setAudioLoop('down',state.mode==='lower'&&dy<-.00002);
-    // Returning to the starting position can involve actual vertical lifting.
-    setAudioLoop('up',(state.mode==='lift'||state.mode==='homing')&&dy>.00002);
-    setAudioLoop('open',state.mode==='release');
-    // Win sound plays for the visible award animation, then ends on Continue.
+    // Ordinary horizontal movement (including transport to the prize chute)
+    // always uses move.mp3. ONLY the trip back to HOME uses move2.mp3.
+    const returningHome=state.mode==='homing'&&state.homePhase==='travel';
+    const ordinaryMove=(state.mode==='move'&&previousMode==='move')||
+      (state.mode==='return'&&previousMode==='return');
+    setAudioLoop('move',ordinaryMove&&horizontalMoved);
+    setAudioLoop('move2',returningHome&&horizontalMoved);
+    setAudioLoop('down',dy<-.00002&&state.mode==='lower');
+    setAudioLoop('up',dy>.00002&&(state.mode==='lift'||state.mode==='homing'));
+
+    // Measure actual finger rotations, including independent motion when the
+    // plush blocks one finger or a finger slips open during transport.
+    let opening=0,closing=0;
+    for(let i=0;i<3;i++){
+      const change=fingerClose[i]-previousFingerClose[i];
+      if(change>closing)closing=change;
+      if(-change>opening)opening=-change;
+    }
+    // Brief hold prevents audible gaps at frame boundaries, without sounding
+    // throughout a stationary claw phase. The stronger motion wins if mixed.
+    if(closing>.0015||opening>.0015){
+      if(closing>=opening){clawAudioHold.close=.055;clawAudioHold.open=0;}
+      else{clawAudioHold.open=.055;clawAudioHold.close=0;}
+    }else{
+      clawAudioHold.close=Math.max(0,clawAudioHold.close-dt);
+      clawAudioHold.open=Math.max(0,clawAudioHold.open-dt);
+    }
+    setAudioLoop('close',clawAudioHold.close>0);
+    setAudioLoop('open',clawAudioHold.open>0);
     setAudioLoop('get',$('winOverlay').classList.contains('show'));
   }
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -1761,6 +1827,7 @@ function startFullGame() {
   }
 
   function pressDrop() {
+    if(state.mode==='move'||state.mode==='lower')playOneShot('press');
     if(state.mode==='move') {
       state.mode='lower'; transport.verticalSpeed=0; state.loweredByTimer=false; stopMachine();
       showToast('LOWERING','アームがゆっくり降下中。任意の高さでもう一度押すとそこで止まります！',1.6);
@@ -1852,6 +1919,7 @@ function startFullGame() {
   $('winContinue').addEventListener('click',hideWinOverlay);
   function finishRound(){
     state.mode='result'; state.timeLeft=20;
+    if(state.roundWon===0)playOneShot('miss');
     const msg=state.roundWon>0?`景品を${state.roundWon}個ゲット！`:'今回は惜しかった…';
     showToast(state.roundWon>0?'PRIZE GET!':'ROUND COMPLETE',msg+' 次のラウンドに挑戦しよう。',2.8);
     updateUI(true);
@@ -1869,7 +1937,7 @@ function startFullGame() {
           machine.x=clamp(machine.x+vx*dt,-2.15,2.15);
           machine.z=clamp(machine.z+vz*dt,-1.7,1.50);
           state.timeLeft-=dt;
-        if(state.timeLeft<=0){state.timeLeft=0;state.mode='lower';transport.verticalSpeed=0;state.loweredByTimer=true;stopMachine();showToast('TIME UP','操作時間終了。アームが自動で降下します。',1.7);}
+        if(state.timeLeft<=0){playOneShot('timeup');state.timeLeft=0;state.mode='lower';transport.verticalSpeed=0;state.loweredByTimer=true;stopMachine();showToast('TIME UP','操作時間終了。アームが自動で降下します。',1.7);}
         }
         break;
       case 'lower':
@@ -1973,6 +2041,7 @@ function startFullGame() {
     requestAnimationFrame(animate);
     let dt=(now-lastTime)/1000; lastTime=now; dt=Math.min(.04,Math.max(0,dt));
     const audioPreviousX=machine.x, audioPreviousY=machine.y, audioPreviousZ=machine.z, audioPreviousMode=state.mode;
+    const audioPreviousFingerClose=fingerClose.slice();
     updateGame(dt);
     updateClawSpring(dt||fixed);
     updateCeilingFingers(dt);
@@ -1997,7 +2066,7 @@ function startFullGame() {
       f.mesh.quaternion.set(f.body.quaternion.x,f.body.quaternion.y,f.body.quaternion.z,f.body.quaternion.w);
     }
     checkPrizeChute();
-    syncMachineAudio(audioPreviousX,audioPreviousY,audioPreviousZ,audioPreviousMode);
+    syncMachineAudio(audioPreviousX,audioPreviousY,audioPreviousZ,audioPreviousMode,audioPreviousFingerClose,dt);
     // Restrained idle motion in the light strip adds a little arcade atmosphere.
     materials.edge.emissiveIntensity=.28+.10*(Math.sin(now*.002)+1);
     renderer.render(scene,camera);
@@ -2014,4 +2083,3 @@ else window.addEventListener('prize-libs-ready', startFullGame, {once:true});
 </script>
 </body>
 </html>
-
