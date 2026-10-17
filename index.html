@@ -1682,6 +1682,9 @@ function startFullGame() {
   };
   const oneShotSounds=new Set(['start','press','timeup','miss']);
   const soundTracks={};
+  const audioRequests={};
+  const audioGates={};
+  let mixerResumePending=false;
   const activeLoops={move:false,move2:false,down:false,up:false,close:false,open:false,get:false};
   const warnedSounds=new Set();
   let audioActivated=false;
@@ -1709,8 +1712,8 @@ function startFullGame() {
       audioMixer.se.gain.value=audioSettings.se/100;
     }
     for(const [key,track] of Object.entries(soundTracks)){
-      track.volume=audioMixer?1:masterVolume(key);
-      track.muted=!audioMixer && masterVolume(key)===0;
+      track.volume=audioGates[key]?1:masterVolume(key);
+      track.muted=!audioGates[key] && masterVolume(key)===0;
     }
   }
   function reflectAudioSettings(){
@@ -1722,13 +1725,15 @@ function startFullGame() {
   }
   // Build the audio graph on the first real user gesture (START/RESET).
   // Using only same-directory HTTPS/HTTP files avoids cross-origin silence.
+  function resumeAudioMixer(){
+    if(!audioMixer || mixerResumePending || document.hidden)return;
+    const context=audioMixer.context;
+    if(context.state==='running'||context.state==='closed')return;
+    mixerResumePending=true;
+    context.resume().then(()=>recoverAudio(),()=>{}).finally(()=>{mixerResumePending=false;});
+  }
   function enableAudioMixer(){
-    if(audioMixer){
-      if(audioMixer.context.state==='suspended')audioMixer.context.resume().catch(()=>{});
-      return;
-    }
-    // Some browsers isolate local file: URLs; their ordinary Audio.volume
-    // is more reliable than routing opaque-origin files through WebAudio.
+    if(audioMixer){resumeAudioMixer();return;}
     if(location.protocol==='file:')return;
     const AudioContextType=window.AudioContext||window.webkitAudioContext;
     if(!AudioContextType)return;
@@ -1736,14 +1741,23 @@ function startFullGame() {
       const context=new AudioContextType();
       const bgm=context.createGain(),se=context.createGain();
       bgm.connect(context.destination);se.connect(context.destination);
-      for(const [key,track] of Object.entries(soundTracks)){
-        context.createMediaElementSource(track).connect(key==='bgm'?bgm:se);
-      }
       audioMixer={context,bgm,se};
+      for(const [key,track] of Object.entries(soundTracks)){
+        // Per-track silent preparation, without changing the user's volume.
+        const gate=context.createGain();
+        gate.connect(key==='bgm'?bgm:se);
+        try{
+          context.createMediaElementSource(track).connect(gate);
+          audioGates[key]=gate;
+        }catch(err){console.warn('音声ミキサー接続:',soundFiles[key],err);}
+      }
+      context.addEventListener('statechange',()=>{
+        if(context.state==='running')recoverAudio();
+      });
       applyAudioVolumes();
-      if(context.state==='suspended')context.resume().catch(()=>{});
+      resumeAudioMixer();
     }catch(err){
-      console.warn('WebAudioミキサーを開始できませんでした。通常の音量設定を使用します。',err);
+      console.warn('WebAudioミキサーを開始できませんでした。',err);
       applyAudioVolumes();
     }
   }
@@ -1772,12 +1786,24 @@ function startFullGame() {
     track.preload='auto';
     track.loop=!oneShotSounds.has(key);
     track.volume=masterVolume(key);
-    track.addEventListener('error',()=>{
-      if(warnedSounds.has(key))return;
-      warnedSounds.add(key);
-      console.warn('効果音ファイルを読み込めませんでした（HTMLと同じフォルダを確認）:',filename);
-    },{once:true});
+    audioRequests[key]={wanted:false,pending:false,token:0,retryAt:0,reloads:0,expires:Infinity,priming:false,unlocked:false};
     soundTracks[key]=track;
+    track.addEventListener('error',()=>{
+      const request=audioRequests[key];
+      request.pending=false;
+      request.retryAt=performance.now()+800;
+      if(!warnedSounds.has(key)){
+        warnedSounds.add(key);
+        console.warn('音声ファイルを読み込めませんでした:',soundFiles[key]);
+      }
+    });
+    for(const event of ['loadeddata','canplay'])track.addEventListener(event,()=>{
+      if(audioRequests[key].wanted)attemptAudioTrack(key);
+    });
+    track.addEventListener('ended',()=>{
+      if(oneShotSounds.has(key))audioRequests[key].wanted=false;
+    });
+    track.load();
   }
   // Reuse the BGM element and mixer so volume, looping and mobile audio remain intact.
   function syncChanceBgm(){
@@ -1785,7 +1811,8 @@ function startFullGame() {
     if(soundFiles.bgm===filename)return;
     soundFiles.bgm=filename;
     const track=soundTracks.bgm;
-    track.pause();
+    stopAudioTrack('bgm');
+    audioRequests.bgm.reloads=0;
     track.src=new URL('./'+filename,document.baseURI).href;
     track.load();
     warnedSounds.delete('bgm');
@@ -1797,34 +1824,103 @@ function startFullGame() {
     syncChanceBgm();
     try{localStorage.setItem(audioStorageKey,JSON.stringify(audioSettings));}catch(_){}
   });
-  function playAudioTrack(key){
-    const track=soundTracks[key];
-    if(!track||track.error)return;
-    try{
-      const result=track.play();
-      if(result&&typeof result.catch==='function')result.catch(err=>{
-        if(err&&err.name==='AbortError')return;
-        if(!warnedSounds.has(key)){
-          warnedSounds.add(key);
-          console.warn('音声を再生できませんでした:',soundFiles[key],err);
-        }
-      });
-    }catch(err){
-      if(!warnedSounds.has(key)){
+  function audioStillWanted(key){
+    const r=audioRequests[key];
+    return r.wanted && audioActivated && !document.hidden && performance.now()<r.expires;
+  }
+  function attemptAudioTrack(key,gesture=false){
+    const track=soundTracks[key],r=audioRequests[key];
+    if(!track || !audioStillWanted(key) || r.pending || (!gesture && performance.now()<r.retryAt))return;
+    if(track.error){
+      // Retry transient network failures, but never hammer a missing MP3.
+      if(r.reloads>=2)return;
+      r.reloads++;
+      r.token++;
+      track.load();
+    }
+    if(!track.paused && !track.ended)return;
+    const token=++r.token;
+    r.pending=true;
+    r.retryAt=performance.now()+500;
+    const failed=err=>{
+      if(token!==r.token)return;
+      r.pending=false;
+      r.retryAt=performance.now()+800;
+      if(err && err.name!=='AbortError' && err.name!=='NotAllowedError' && !warnedSounds.has(key)){
         warnedSounds.add(key);
         console.warn('音声を再生できませんでした:',soundFiles[key],err);
       }
-    }
+    };
+    try{
+      Promise.resolve(track.play()).then(()=>{
+        if(token!==r.token)return;
+        r.pending=false;r.unlocked=true;
+        warnedSounds.delete(key);
+        if(!audioStillWanted(key))stopAudioTrack(key);
+        else r.expires=Infinity; // Expiry limits delayed starts, never clips a playing sound.
+      },failed);
+    }catch(err){failed(err);}
+  }
+  function playAudioTrack(key){
+    const r=audioRequests[key];
+    if(!r)return;
+    if(r.priming)stopAudioTrack(key);
+    r.wanted=true;
+    r.expires=oneShotSounds.has(key)?performance.now()+1500:Infinity;
+    r.retryAt=0;
+    attemptAudioTrack(key);
   }
   function stopAudioTrack(key){
-    const track=soundTracks[key];
+    const track=soundTracks[key],r=audioRequests[key];
     if(!track)return;
+    r.token++;r.wanted=false;r.pending=false;r.priming=false;
     track.pause();
+    if(audioGates[key])audioGates[key].gain.value=1;
     try{track.currentTime=0;}catch(_){}
   }
+  function recoverAudio(gesture=false){
+    if(!audioActivated || document.hidden)return;
+    for(const key of Object.keys(soundTracks)){
+      const r=audioRequests[key];
+      if(r.wanted && performance.now()>=r.expires)stopAudioTrack(key);
+      else if(r.wanted)attemptAudioTrack(key,gesture);
+    }
+  }
+  function prepareAudioGesture(){
+    if(!audioActivated || document.hidden)return;
+    enableAudioMixer();
+    recoverAudio(true);
+    // Authorize each media element within a real gesture. Its gain is zero
+    // until it is paused again, so no unrequested sound reaches the speakers.
+    for(const [key,track] of Object.entries(soundTracks)){
+      const r=audioRequests[key],gate=audioGates[key];
+      if(!gate || r.wanted || r.unlocked || r.priming || track.error)continue;
+      const token=++r.token;
+      r.priming=true;gate.gain.value=0;
+      const finish=ok=>{
+        if(token!==r.token)return;
+        track.pause();
+        try{track.currentTime=0;}catch(_){}
+        r.priming=false;r.unlocked=ok;gate.gain.value=1;
+      };
+      try{Promise.resolve(track.play()).then(()=>finish(true),()=>finish(false));}
+      catch(_){finish(false);}
+    }
+  }
+  for(const event of ['pointerdown','touchend','click','keydown']){
+    document.addEventListener(event,prepareAudioGesture,{capture:true,passive:true});
+  }
+  setInterval(()=>recoverAudio(),500);
+  window.addEventListener('online',()=>{
+    for(const r of Object.values(audioRequests)){r.reloads=0;r.retryAt=0;}
+    recoverAudio();
+  });
   function setAudioLoop(key,enabled){
     if(!audioActivated||document.hidden)enabled=false;
-    if(activeLoops[key]===enabled)return;
+    if(activeLoops[key]===enabled){
+      if(enabled)attemptAudioTrack(key);
+      return;
+    }
     activeLoops[key]=enabled;
     if(enabled){
       try{soundTracks[key].currentTime=0;}catch(_){}
@@ -1842,14 +1938,20 @@ function startFullGame() {
     enableAudioMixer();
     if(soundTracks.bgm.paused)playAudioTrack('bgm');
     playOneShot('start');
+    prepareAudioGesture();
   }
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){
       for(const key of Object.keys(activeLoops))setAudioLoop(key,false);
-      soundTracks.bgm.pause();
-      for(const key of oneShotSounds)soundTracks[key].pause();
+      // Preserve BGM position, cancel all pending plays (including preparation).
+      for(const key of Object.keys(soundTracks)){
+        const r=audioRequests[key];
+        r.token++;r.wanted=false;r.pending=false;r.priming=false;
+        soundTracks[key].pause();
+        if(audioGates[key])audioGates[key].gain.value=1;
+      }
       clawAudioHold.close=0;clawAudioHold.open=0;
-    }else if(audioActivated&&soundTracks.bgm.paused){
+    }else if(audioActivated){
       enableAudioMixer();
       playAudioTrack('bgm');
     }
@@ -2316,3 +2418,4 @@ else window.addEventListener('prize-libs-ready', startFullGame, {once:true});
 </script>
 </body>
 </html>
+
