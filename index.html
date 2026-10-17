@@ -234,7 +234,7 @@
     </div>
     <div class="top-right">
       <button class="pill" id="prizeMenuBtn" disabled>景品を選ぶ</button>
-      <button class="pill" id="audioSettingsBtn" type="button" aria-haspopup="dialog" aria-controls="audioSettings">♫ 音量設定</button>
+      <button class="pill" id="audioSettingsBtn" type="button" aria-haspopup="dialog" aria-controls="audioSettings">⚙ 設定</button>
       <div class="pill">ROUND <strong id="roundNum">01</strong></div>
       <div class="pill">PRIZES <strong id="scoreTop">0</strong></div>
     </div>
@@ -261,6 +261,7 @@
         <div class="win-title" id="winTitle">GET!!</div>
         <div class="win-caption" id="winCaption">くまのぬいぐるみを獲得！</div>
         <p id="winAttempts" class="win-attempts" aria-live="polite"></p>
+        <p id="winSavings" class="win-attempts"></p>
         </div>
         <button class="btn btn-primary" id="winContinue">やった！ 続ける</button>
       </div>
@@ -305,8 +306,8 @@
 
 <dialog id="audioSettings" aria-labelledby="audioSettingsTitle">
   <div class="audio-settings-heading">
-    <h2 id="audioSettingsTitle">♫ 音量設定</h2>
-    <button type="button" class="audio-close" id="audioSettingsClose" aria-label="音量設定を閉じる">×</button>
+    <h2 id="audioSettingsTitle">⚙ 設定</h2>
+    <button type="button" class="audio-close" id="audioSettingsClose" aria-label="設定を閉じる">×</button>
   </div>
   <div class="audio-volume-item">
     <label class="audio-volume-row" for="bgmSelect">BGMを選択</label>
@@ -319,6 +320,11 @@
     <label class="audio-volume-row" for="seVolume"><span>♫ SE（効果音）</span><output id="seVolumeValue" for="seVolume">100%</output></label>
     <input id="seVolume" type="range" min="0" max="100" step="1" value="100" aria-label="効果音音量" />
     <p class="audio-volume-desc">BGM以外のすべての効果音をまとめて調整</p>
+  </div>
+  <div class="audio-volume-item">
+    <label class="audio-volume-row" for="chanceEnabled"><span>確率</span><input id="chanceEnabled" type="checkbox" role="switch" style="width:24px;height:24px" /></label>
+    <p class="audio-volume-desc">ONで毎プレイで一定確率の強アーム抽選。虹色のフレームと金色のアームが当選の目印です。常にアームのパワーが強い状態になります。設定はプレイ待機中に変更できます。</p>
+    <p id="chanceStatus" class="audio-volume-desc" aria-live="polite"></p>
   </div>
   <div class="audio-settings-footer"><button type="button" class="audio-settings-done" id="audioSettingsDone">完了</button></div>
 </dialog>
@@ -547,6 +553,16 @@ function startFullGame() {
   const wallBottom=-1.54, wallTop=13.65;
   const roomLeft=-24, roomRight=24, roomBack=-20, roomFront=21;
   const arcadeWalls={};
+  let chanceBackgroundDim=false;
+  const chanceBackgroundBrightness=.1; // 当選中の背景の明るさ（1で通常）
+  function updateChanceBackground(){
+    ground.material.color.copy(chanceGroundNormalColor);
+    if(chanceBackgroundDim)ground.material.color.multiplyScalar(chanceBackgroundBrightness);
+    for(const wall of Object.values(arcadeWalls)){
+      wall.material.color.setHex(wall.material.map?0xffffff:0x271d38);
+      if(chanceBackgroundDim)wall.material.color.multiplyScalar(chanceBackgroundBrightness);
+    }
+  }
   const wallSpecs={
     left: {width:roomFront-roomBack, height:wallTop-wallBottom,
       position:[roomLeft,(wallTop+wallBottom)*.5,(roomFront+roomBack)*.5], rotation:Math.PI/2},
@@ -585,6 +601,7 @@ function startFullGame() {
       const old=wall.material.map;
       wall.material.map=wallTextureFromImage(images[face]);
       wall.material.color.setHex(0xffffff);
+      if(chanceBackgroundDim)wall.material.color.multiplyScalar(chanceBackgroundBrightness);
       wall.material.needsUpdate=true;
       if(old) old.dispose();
     }
@@ -760,6 +777,7 @@ function startFullGame() {
   floorTexture.repeat.set(28,28);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({map:floorTexture,color:0xfffbf4,roughness:.76,metalness:.03}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-1.55;ground.receiveShadow=true;scene.add(ground);
+  const chanceGroundNormalColor=ground.material.color.clone();
   const platform = new THREE.Mesh(new THREE.BoxGeometry(7.0,.32,5.8), mat(0xe8cde7,.4,.08));
   platform.position.set(0,-1.25,0); platform.castShadow=true; platform.receiveShadow=true; scene.add(platform);
   const platformTop = new THREE.Mesh(new THREE.BoxGeometry(6.7,.035,5.5), mat(0xb6b8d4,.38,.18));
@@ -1254,7 +1272,7 @@ function startFullGame() {
   const ceilingControl={active:false,releasing:false,elapsed:0,ticks:0,targets:[0,0,0]};
   const clawServo = { value:0, velocity:0, target:0 };
   const homeY=5.20;
-  const clawMinY=1.40;
+  const clawMinY=1.45;
   const clawSpring = { stiffness:58, damping:11 };
   function setClawTarget(target){ clawServo.target=clamp(target,0,1); }
   function updateClawSpring(dt){
@@ -1451,6 +1469,7 @@ function startFullGame() {
     if(!ceilingControl.active) return;
     const gaps=fingerUnits.map((_,i)=>fingerPrizeDistance(i));
     for(let i=0;i<3;i++) if(gaps[i]>.5) ceilingControl.targets[i]=1;
+    if(chanceMode.current)return; // Keep gap-based closing; suppress only random opening.
     ceilingControl.elapsed+=dt;
     while(ceilingControl.elapsed>=.05-1e-9){
       ceilingControl.elapsed=Math.max(0,ceilingControl.elapsed-.05);
@@ -1594,6 +1613,61 @@ function startFullGame() {
 
   // ---------------------- Game state and controls ----------------------
   const state={mode:'idle',timeLeft:20,round:0,score:0,grabElapsed:0,releaseElapsed:0,topPauseElapsed:0,toastTimer:0,loweredByTimer:false,roundWon:0,ceilingReached:false};
+  // A pending draw is retained across setting toggles and prize changes.
+  const chanceMode={enabled:false,pending:null,current:false};
+  try{chanceMode.enabled=localStorage.getItem('fuwamocoChanceEnabled')==='true';}catch(_){}
+  const chanceFrame=[];
+  cabinet.traverse(node=>{
+    if(node.isMesh && [materials.frame,materials.frameLight].includes(node.material)
+      && node.parent===cabinet){
+      const original=node.material;
+      node.material=original.clone();
+      chanceFrame.push({mesh:node,original,normal:node.material.clone()});
+    }
+  });
+  const chanceArm=[];
+  const chanceGold=mat(0xffcf40,.24,.72,{emissive:0xffbf36,emissiveIntensity:.30});
+  for(const root of [hub,...fingerUnits.map(f=>f.mesh)])root.traverse(node=>{
+    if(node.isMesh)chanceArm.push({mesh:node,normal:node.material});
+  });
+  let chanceVisualActive=false;
+  let chanceAudioReady=false;
+  function chanceWaiting(){return state.mode==='idle'||state.mode==='result';}
+  //チャンス確率
+  function prepareChance(){
+    if(chanceMode.enabled && chanceMode.pending===null)chanceMode.pending=Math.random()<.1;
+    refreshChance();
+  }
+  function refreshChance(){
+    const waiting=chanceWaiting();
+    const active=waiting ? chanceMode.enabled && chanceMode.pending===true : chanceMode.current;
+    $('chanceEnabled').checked=chanceMode.enabled;
+    $('chanceEnabled').disabled=!waiting;
+    $('chanceStatus').textContent=active ? (waiting?'次のプレイ：🌈 強アーム当選！':'🌈 強アームでプレイ中！') : chanceMode.enabled?'確率 ON':'確率 OFF';
+    if(active===chanceVisualActive)return;
+    chanceVisualActive=active;
+    chanceBackgroundDim=active;
+    updateChanceBackground();
+    if(chanceAudioReady)syncChanceBgm();
+    for(const item of chanceArm)item.mesh.material=active?chanceGold:item.normal;
+    if(!active)for(const item of chanceFrame)item.mesh.material.copy(item.normal);
+  }
+  function animateChance(now){
+    if(!chanceVisualActive)return;
+    chanceFrame.forEach((item,i)=>{
+      const material=item.mesh.material;
+      material.color.setHSL((now*.00045+i/chanceFrame.length)%1,.95,.6);
+      material.emissive.copy(material.color);
+      material.emissiveIntensity=.28+.06*Math.sin(now*.003); // 控えめな発光
+    });
+  }
+  $('chanceEnabled').addEventListener('change',()=>{
+    if(!chanceWaiting()){refreshChance();return;}
+    chanceMode.enabled=$('chanceEnabled').checked;
+    try{localStorage.setItem('fuwamocoChanceEnabled',String(chanceMode.enabled));}catch(_){}
+    prepareChance();
+  });
+  prepareChance();
   // ---------------------- Event-driven MP3 audio ----------------------
   // MP3 filenames are case-sensitive. Put all MP3s next to this HTML.
   // Dedicated looping tracks are switched by measured physical movement,
@@ -1624,7 +1698,7 @@ function startFullGame() {
       }
     }
   }catch(_){/* Private mode/file URLs can disallow storage. */}
-  soundFiles.bgm='BGM'+audioSettings.track+'.mp3';
+  soundFiles.bgm=chanceVisualActive?'BGM4.mp3':'BGM'+audioSettings.track+'.mp3';
   const masterVolume=key=>(key==='bgm'?audioSettings.bgm:audioSettings.se)/100;
   function applyAudioVolumes(){
     // The selected BGM file uses BGM volume. All other files use SE.
@@ -1705,15 +1779,22 @@ function startFullGame() {
     },{once:true});
     soundTracks[key]=track;
   }
-  $('bgmSelect').addEventListener('change',()=>{
-    audioSettings.track=Number($('bgmSelect').value);
-    soundFiles.bgm='BGM'+audioSettings.track+'.mp3';
+  // Reuse the BGM element and mixer so volume, looping and mobile audio remain intact.
+  function syncChanceBgm(){
+    const filename=chanceVisualActive?'BGM4.mp3':'BGM'+audioSettings.track+'.mp3';
+    if(soundFiles.bgm===filename)return;
+    soundFiles.bgm=filename;
     const track=soundTracks.bgm;
     track.pause();
-    track.src=new URL('./'+soundFiles.bgm,document.baseURI).href;
+    track.src=new URL('./'+filename,document.baseURI).href;
     track.load();
     warnedSounds.delete('bgm');
     if(audioActivated&&!document.hidden){enableAudioMixer();playAudioTrack('bgm');}
+  }
+  chanceAudioReady=true;
+  $('bgmSelect').addEventListener('change',()=>{
+    audioSettings.track=Number($('bgmSelect').value);
+    syncChanceBgm();
     try{localStorage.setItem(audioStorageKey,JSON.stringify(audioSettings));}catch(_){}
   });
   function playAudioTrack(key){
@@ -1837,6 +1918,7 @@ function startFullGame() {
   function hideToast(){ $('toast').classList.remove('show'); }
   function updateUI(force=false) {
     if (!force && uiClock<.08) return; uiClock=0;
+    refreshChance();
     $('prizeMenuBtn').disabled=false;
     if($('prizeMenu').open)refreshPrizeMenu();
     $('roundNum').textContent=String(Math.max(1,state.round)).padStart(2,'0');
@@ -1899,6 +1981,11 @@ function startFullGame() {
     }
   }
   function beginHome(reset){
+    // Starting consumes the already visible draw. An interrupted round ends here.
+    if(!chanceWaiting())chanceMode.pending=null;
+    prepareChance();
+    chanceMode.current=chanceMode.enabled && chanceMode.pending===true;
+    chanceMode.pending=null;
     hideWinOverlay();hideToast();stopMachine();keysDown.clear();
     if(reset){state.round=0;state.score=0;}
     state.mode='homing';state.homePhase='raise';state.resetOnHome=reset;
@@ -2029,6 +2116,7 @@ function startFullGame() {
     document.querySelector('.win-bear').textContent=({bear:'🧸',bunny:'🐰',dog:'🐶',sprite:'🌟'})[prize.def.type]||'🎁';
     $('winCaption').textContent=`「${prize.def.name}」を獲得！ おめでとう！`;
     $('winAttempts').textContent=`獲得までのプレイ回数：${state.round}回`;
+    $('winSavings').textContent=`節約できた金額：${(state.round*100).toLocaleString('ja-JP')}円`;
     overlay.classList.add('show');
     $('winContinue').focus({preventScroll:true});
   }
@@ -2037,6 +2125,8 @@ function startFullGame() {
   $('winContinue').addEventListener('click',hideWinOverlay);
   function finishRound(){
     state.mode='result'; state.timeLeft=20;
+    chanceMode.current=false;
+    prepareChance();
     if(state.roundWon===0)playOneShot('miss');
     const msg=state.roundWon>0?`景品を${state.roundWon}個ゲット！`:'今回は惜しかった…';
     showToast(state.roundWon>0?'PRIZE GET!':'ROUND COMPLETE',msg+' 次のラウンドに挑戦しよう。',2.8);
@@ -2211,6 +2301,7 @@ function startFullGame() {
     syncMachineAudio(audioPreviousX,audioPreviousY,audioPreviousZ,audioPreviousMode,audioPreviousFingerClose,dt);
     // Restrained idle motion in the light strip adds a little arcade atmosphere.
     materials.edge.emissiveIntensity=.28+.10*(Math.sin(now*.002)+1);
+    animateChance(now);
     renderer.render(scene,camera);
   }
   requestAnimationFrame(animate);
