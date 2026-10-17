@@ -1684,6 +1684,9 @@ function startFullGame() {
   const soundTracks={};
   const audioRequests={};
   const audioGates={};
+  const seBuffers={},seSources={};
+  let seBufferBytes=0;
+  let sePreloadStarted=false;
   let mixerResumePending=false;
   const activeLoops={move:false,move2:false,down:false,up:false,close:false,open:false,get:false};
   const warnedSounds=new Set();
@@ -1726,7 +1729,7 @@ function startFullGame() {
   // Build the audio graph on the first real user gesture (START/RESET).
   // Using only same-directory HTTPS/HTTP files avoids cross-origin silence.
   function resumeAudioMixer(){
-    if(!audioMixer || mixerResumePending || document.hidden)return;
+    if(!audioMixer || !audioActivated || mixerResumePending || document.hidden)return;
     const context=audioMixer.context;
     if(context.state==='running'||context.state==='closed')return;
     mixerResumePending=true;
@@ -1738,7 +1741,7 @@ function startFullGame() {
     const AudioContextType=window.AudioContext||window.webkitAudioContext;
     if(!AudioContextType)return;
     try{
-      const context=new AudioContextType();
+      const context=new AudioContextType({latencyHint:'interactive'});
       const bgm=context.createGain(),se=context.createGain();
       bgm.connect(context.destination);se.connect(context.destination);
       audioMixer={context,bgm,se};
@@ -1755,6 +1758,7 @@ function startFullGame() {
         if(context.state==='running')recoverAudio();
       });
       applyAudioVolumes();
+      preloadEffectBuffers();
       resumeAudioMixer();
     }catch(err){
       console.warn('WebAudioミキサーを開始できませんでした。',err);
@@ -1824,6 +1828,61 @@ function startFullGame() {
     syncChanceBgm();
     try{localStorage.setItem(audioStorageKey,JSON.stringify(audioSettings));}catch(_){}
   });
+  // Decode effects once; subsequent starts use the audio rendering thread.
+  // BGM remains streamed so long music tracks do not consume decoded RAM.
+  function preloadEffectBuffers(){
+    if(sePreloadStarted || !audioMixer || typeof fetch!=='function')return;
+    sePreloadStarted=true;
+    const queue=Object.keys(soundFiles).filter(key=>key!=='bgm');
+    async function worker(){
+      while(queue.length){
+        const key=queue.shift();
+        try{
+          const controller=new AbortController();
+          const timeout=setTimeout(()=>controller.abort(),15000);
+          let bytes;
+          try{
+            const response=await fetch(new URL('./'+soundFiles[key],document.baseURI).href,{signal:controller.signal});
+            if(!response.ok)throw new Error('HTTP '+response.status);
+            bytes=await response.arrayBuffer();
+          }finally{clearTimeout(timeout);}
+          if(bytes.byteLength>8*1024*1024)continue;
+          const buffer=await audioMixer.context.decodeAudioData(bytes);
+          const size=buffer.length*buffer.numberOfChannels*4;
+          if(buffer.duration<=60 && seBufferBytes+size<=48*1024*1024){
+            seBuffers[key]=buffer;seBufferBytes+=size;
+          }
+        }catch(_){/* Keep the media-element fallback if fetch/decode fails. */}
+      }
+    }
+    // Two workers avoid a burst of downloads/decodes on mobile devices.
+    worker();worker();
+  }
+  function stopBufferedEffect(key){
+    const source=seSources[key];
+    if(!source)return;
+    delete seSources[key];source.onended=null;
+    try{source.stop();}catch(_){}
+    source.disconnect();
+  }
+  function startBufferedEffect(key){
+    const r=audioRequests[key],context=audioMixer.context;
+    if(seSources[key])return;
+    // Do not enqueue stale effects in a suspended/interrupted audio context.
+    if(context.state!=='running'){resumeAudioMixer();return;}
+    const source=context.createBufferSource();
+    source.buffer=seBuffers[key];
+    source.loop=!oneShotSounds.has(key);
+    source.connect(audioMixer.se);
+    seSources[key]=source;
+    source.onended=()=>{
+      if(seSources[key]!==source)return;
+      delete seSources[key];source.disconnect();
+      if(oneShotSounds.has(key))r.wanted=false;
+    };
+    source.start(0);
+    r.expires=Infinity;
+  }
   function audioStillWanted(key){
     const r=audioRequests[key];
     return r.wanted && audioActivated && !document.hidden && performance.now()<r.expires;
@@ -1831,6 +1890,8 @@ function startFullGame() {
   function attemptAudioTrack(key,gesture=false){
     const track=soundTracks[key],r=audioRequests[key];
     if(!track || !audioStillWanted(key) || r.pending || (!gesture && performance.now()<r.retryAt))return;
+    if(!r.backend)r.backend=(key!=='bgm' && seBuffers[key] && audioMixer)?'buffer':'media';
+    if(r.backend==='buffer'){startBufferedEffect(key);return;}
     if(track.error){
       // Retry transient network failures, but never hammer a missing MP3.
       if(r.reloads>=2)return;
@@ -1873,7 +1934,8 @@ function startFullGame() {
   function stopAudioTrack(key){
     const track=soundTracks[key],r=audioRequests[key];
     if(!track)return;
-    r.token++;r.wanted=false;r.pending=false;r.priming=false;
+    r.token++;r.wanted=false;r.pending=false;r.priming=false;r.backend=null;
+    stopBufferedEffect(key);
     track.pause();
     if(audioGates[key])audioGates[key].gain.value=1;
     try{track.currentTime=0;}catch(_){}
@@ -1894,7 +1956,7 @@ function startFullGame() {
     // until it is paused again, so no unrequested sound reaches the speakers.
     for(const [key,track] of Object.entries(soundTracks)){
       const r=audioRequests[key],gate=audioGates[key];
-      if(!gate || r.wanted || r.unlocked || r.priming || track.error)continue;
+      if(!gate || seBuffers[key] || r.wanted || r.unlocked || r.priming || track.error)continue;
       const token=++r.token;
       r.priming=true;gate.gain.value=0;
       const finish=ok=>{
@@ -1910,6 +1972,7 @@ function startFullGame() {
   for(const event of ['pointerdown','touchend','click','keydown']){
     document.addEventListener(event,prepareAudioGesture,{capture:true,passive:true});
   }
+  enableAudioMixer();
   setInterval(()=>recoverAudio(),500);
   window.addEventListener('online',()=>{
     for(const r of Object.values(audioRequests)){r.reloads=0;r.retryAt=0;}
@@ -1946,7 +2009,8 @@ function startFullGame() {
       // Preserve BGM position, cancel all pending plays (including preparation).
       for(const key of Object.keys(soundTracks)){
         const r=audioRequests[key];
-        r.token++;r.wanted=false;r.pending=false;r.priming=false;
+        r.token++;r.wanted=false;r.pending=false;r.priming=false;r.backend=null;
+        stopBufferedEffect(key);
         soundTracks[key].pause();
         if(audioGates[key])audioGates[key].gain.value=1;
       }
@@ -2418,4 +2482,3 @@ else window.addEventListener('prize-libs-ready', startFullGame, {once:true});
 </script>
 </body>
 </html>
-
