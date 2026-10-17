@@ -1272,7 +1272,7 @@ function startFullGame() {
   const ceilingControl={active:false,releasing:false,elapsed:0,ticks:0,targets:[0,0,0]};
   const clawServo = { value:0, velocity:0, target:0 };
   const homeY=5.20;
-  const clawMinY=1.45;
+  const clawMinY=1.50;
   const clawSpring = { stiffness:58, damping:11 };
   function setClawTarget(target){ clawServo.target=clamp(target,0,1); }
   function updateClawSpring(dt){
