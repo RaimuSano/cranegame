@@ -210,6 +210,7 @@
   #audioSettingsBtn{font-weight:800;}
   @media(max-width:420px){.topbar .brand{gap:6px;}.topbar .brand-mark{width:30px;height:30px;}.topbar .brand-name{font-size:10px;letter-spacing:.07em;}.topbar .brand-sub{display:none;}.top-right{gap:3px;}.top-right .pill{padding:6px;font-size:8px;}#audioSettingsBtn{font-size:8px;padding:6px;}}
   #prizeMenu{width:min(520px,calc(100vw - 28px));max-height:85dvh;overflow:auto;padding:24px;border:1px solid #efd1ec;border-radius:22px;background:linear-gradient(140deg,#fffaff,#eee9ff);color:#493052;box-shadow:0 24px 90px #1e163780;}
+  .custom-prize-actions{display:flex;gap:8px;flex-wrap:wrap;}.custom-prize-actions a{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;}.custom-prize-paste{margin-top:12px;font-size:12px;}.custom-prize-paste summary{cursor:pointer;padding:8px 0;}.custom-prize-paste textarea{display:block;width:100%;margin:8px 0;padding:10px;border:1px solid #efd1ec;border-radius:10px;font:inherit;box-sizing:border-box;}
   #prizeMenu::backdrop{background:#1b103ba8;backdrop-filter:blur(5px);}
   .menu-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;}.menu-heading small{font-size:9px;letter-spacing:.2em;color:#aa729e;}.menu-heading h2{font-size:20px;margin:6px 0;}.menu-heading button{width:36px;height:36px;border-radius:50%;background:#e8d9ed;font-size:24px;flex-shrink:0;}
   #prizeMenuNote,.menu-footnote{font-size:11px;line-height:1.7;color:#826583;}.prize-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0;}
@@ -225,6 +226,14 @@
   .win-attempts {font-weight:800;color:#8b5a9d;margin:8px 0 16px;}
   #winContinue {flex:0 0 auto;margin-top:8px;white-space:normal;}
   @media(max-height:500px){.win-bear{font-size:70px}.win-card{padding:10px}.win-title{font-size:24px}.win-caption{margin:5px 0}.win-attempts{margin:6px 0}}
+  /* Large, isolated prize showcase on the result screen only. */
+  #winModelView{position:relative;width:100%;height:clamp(220px,38dvh,340px);margin:8px 0 3px;line-height:1;animation:none;filter:drop-shadow(0 12px 18px rgba(106,72,119,.16));}
+  #winModelCanvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;}
+  #winModelCanvas:active{cursor:grabbing;}
+  .win-model-hint{position:absolute;bottom:2px;left:0;right:0;font-size:10px;color:#826583;pointer-events:none;letter-spacing:.04em;}
+  #winModelFallback{position:absolute;inset:0;place-items:center;font-size:120px;}
+  #winModelFallback:not([hidden]){display:grid;}
+  @media(max-height:500px){#winModelView{height:200px;}}
 </style>
 </head>
 <body>
@@ -260,7 +269,7 @@
       <div class="win-card">
         <div class="win-content">
         <div class="win-kicker">♡ やったね！ GET ♡</div>
-        <div class="win-bear" aria-hidden="true">🧸</div><div style="font-size:18px;letter-spacing:.25em;color:#f2b7d7;margin:-2px 0 6px">✧･ﾟ: *✧･ﾟ:* ♡ *:･ﾟ✧*:･ﾟ✧</div>
+        <div class="win-bear" id="winModelView"><canvas id="winModelCanvas" role="img" aria-label="獲得した景品の3Dモデル"></canvas><span id="winModelFallback" hidden>🎁</span><span class="win-model-hint">ドラッグで360°回転</span></div><div style="font-size:18px;letter-spacing:.25em;color:#f2b7d7;margin:-2px 0 6px">✧･ﾟ: *✧･ﾟ:* ♡ *:･ﾟ✧*:･ﾟ✧</div>
         <div class="win-title" id="winTitle">GET!!</div>
         <div class="win-caption" id="winCaption">くまのぬいぐるみを獲得！</div>
         <p id="winAttempts" class="win-attempts" aria-live="polite"></p>
@@ -298,6 +307,13 @@
 <dialog id="prizeMenu" aria-labelledby="prizeMenuTitle">
   <div class="menu-heading"><div><small>PRIZE COLLECTION</small><h2 id="prizeMenuTitle">今日は、どの子を狙う？</h2></div><button id="prizeMenuClose" aria-label="メニューを閉じる">×</button></div>
   <p id="prizeMenuNote">選んだ景品を台に1つ配置します。</p>
+  <div class="custom-prize-actions">
+    <button class="btn btn-primary" id="customPrizeFileBtn" type="button">オリジナル景品を読み込む</button>
+    <a class="btn btn-subtle" href="create.html">景品をつくる ↗</a>
+  </div>
+  <input type="file" id="customPrizeFile" accept=".txt,.json,text/plain,application/json" hidden>
+  <details class="custom-prize-paste"><summary>コピーしたテキストから追加</summary><textarea id="customPrizeText" aria-label="キャラクターデータ" placeholder="create.htmlでコピーしたテキストを貼り付け" rows="3"></textarea><button class="btn btn-subtle" id="customPrizePasteBtn" type="button">テキストを読み込む</button></details>
+  <p class="menu-footnote" id="customPrizeStatus" role="status">工房で保存した .txt に対応。追加した景品はこのページを閉じるまで選択できます。</p>
   <div class="prize-choices">
     <button class="prize-choice" data-prize="0" aria-pressed="true"><span>🧸</span><b>おおきなくま</b><small>ふわふわの定番</small><em>選択中</em></button>
     <button class="prize-choice" data-prize="1" aria-pressed="false"><span>🐰</span><b>いちごミルクうさぎ</b><small>ピンクの長いお耳</small><em>選ぶ</em></button>
@@ -950,8 +966,100 @@ function startFullGame() {
     {type:'dog',name:'ふわふわイルカ',color:0x086bd6,belly:0x74bdea,x:1.45,z:-1.12,rot:-.16,scale:1.45},
     {type:'sprite',name:'おほしさまのモコ',color:0xffc800,belly:0xffe684,x:-1.45,z:1.00,rot:.12,scale:1.90},
   ];
+  // Imported creator models use a separate branch; built-in prize paths are unchanged.
+  let customPrizeImportBusy=false;
+function customPrizeGeometry(type){const T=THREE;if(type==='sphere'||type==='ellipsoid')return new T.SphereGeometry(.5,32,24);if(type==='cylinder')return new T.CylinderGeometry(.5,.5,1,32);if(type==='cone')return new T.ConeGeometry(.5,1,32);if(type==='triangle'){const sh=new T.Shape();sh.moveTo(-.5,-.5);sh.lineTo(.5,-.5);sh.lineTo(0,.5);sh.closePath();const g=new T.ExtrudeGeometry(sh,{depth:1,bevelEnabled:false});g.translate(0,0,-.5);const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,pos.getX(i)+.5,pos.getY(i)+.5);return g}return new T.BoxGeometry(1,1,1)}
+function validateCustomPrize(text){const LIMIT=60;if(text.length>12*1024*1024)throw Error('ファイルが大きすぎます（12MBまで）');let d;try{d=JSON.parse(text)}catch(e){throw Error('テキストの形式が正しくありません')}if(d.format!=='fuwamoco-character'||d.version!==1||!Array.isArray(d.parts)||d.parts.length>LIMIT)throw Error('この工房の対応データではありません');const clean={format:d.format,version:1,name:String(d.name||'').slice(0,40),icon:String(d.icon||'').slice(0,24),message:String(d.message||'').slice(0,140),parts:[]};for(let i=0;i<d.parts.length;i++){const a=d.parts[i];if(!a||!['sphere','ellipsoid','cylinder','cone','triangle','box'].includes(a.type))throw Error('パーツの種類が正しくありません');for(const [k,min,max]of[['position',-3,3],['scale',.02,3],['rotation',-180,180]])if(!Array.isArray(a[k])||a[k].length!==3||a[k].some(n=>typeof n!=='number'||!Number.isFinite(n)||n<min||n>max))throw Error('パーツの数値が範囲外です');if(!/^#[0-9a-f]{6}$/i.test(a.color))throw Error('色の形式が正しくありません');if(a.paint!=null&&(typeof a.paint!=='string'||a.paint.length>1500000||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a.paint)))throw Error('ペイントの形式が正しくありません');clean.parts.push({id:'p'+(i+1),type:a.type,name:String(a.name||'パーツ').slice(0,32),position:a.position.slice(),scale:a.scale.slice(),rotation:a.rotation.slice(),color:a.color,paint:a.paint||null})}return clean}
+  async function prepareCustomPrize(text){
+    const data=validateCustomPrize(text);
+    if(!data.parts.length)throw Error('パーツがないキャラクターは景品にできません。');
+    const paintImages=new Map();
+    for(const part of data.parts){
+      if(!part.paint)continue;
+      // The editor always exports a 512px PNG. Inspect its header before decoding.
+      const head=atob(part.paint.slice(part.paint.indexOf(',')+1,part.paint.indexOf(',')+45));
+      const sizeAt=i=>((head.charCodeAt(i)*16777216)+(head.charCodeAt(i+1)<<16)+(head.charCodeAt(i+2)<<8)+head.charCodeAt(i+3));
+      if(head.slice(1,4)!=='PNG'||sizeAt(16)!==512||sizeAt(20)!==512)throw Error('ペイント画像は工房で保存した512pxのPNGを使用してください。');
+      const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('ペイント画像が壊れています。'));img.src=part.paint;});
+      paintImages.set(part.id,image);
+    }
+    const shapes=[],bounds=new THREE.Box3();
+    for(const part of data.parts){
+      const geometry=customPrizeGeometry(part.type);
+      geometry.scale(...part.scale);
+      geometry.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...part.rotation.map(n=>n*Math.PI/180))));
+      geometry.translate(...part.position);geometry.computeBoundingBox();bounds.union(geometry.boundingBox);
+      shapes.push({part,geometry});
+    }
+    const center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+    const scale=1.35/Math.max(size.x,size.y,size.z);
+    const collision=[];
+    const perPart=Math.max(6,Math.floor(480/data.parts.length));
+    // Convex primitives are approximated by interior spheres for compatibility
+    // with the existing sphere-based distance, grip and SKIP calculations.
+    for(const {geometry} of shapes){
+      const pos=geometry.attributes.position,index=geometry.index,planes=[];
+      const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),normal=new THREE.Vector3(),edge=new THREE.Vector3();
+      const count=index?index.count:pos.count;
+      for(let i=0;i<count;i+=3){
+        a.fromBufferAttribute(pos,index?index.getX(i):i);b.fromBufferAttribute(pos,index?index.getX(i+1):i+1);c.fromBufferAttribute(pos,index?index.getX(i+2):i+2);
+        normal.subVectors(b,a).cross(edge.subVectors(c,a));if(normal.lengthSq()<1e-18)continue;normal.normalize();
+        planes.push({n:normal.clone(),d:normal.dot(a)});
+      }
+      const box=geometry.boundingBox,mid=box.getCenter(new THREE.Vector3()),extent=box.getSize(new THREE.Vector3()).multiplyScalar(.5),candidates=[];
+      for(const x of [-.8,-.4,0,.4,.8])for(const y of [-.8,-.4,0,.4,.8])for(const z of [-.8,-.4,0,.4,.8]){
+        const p=new THREE.Vector3(mid.x+x*extent.x,mid.y+y*extent.y,mid.z+z*extent.z);
+        let r=Infinity;for(const plane of planes){r=Math.min(r,plane.d-plane.n.dot(p));if(r<=.00001)break;}
+        if(r>.00001)candidates.push({p,r:r*.99});
+      }
+      candidates.sort((a,b)=>b.r-a.r);const chosen=[];
+      for(const ball of candidates){
+        if(chosen.some(other=>other.p.distanceTo(ball.p)+ball.r<=other.r*1.04))continue;
+        chosen.push(ball);if(chosen.length>=perPart)break;
+      }
+      // Slender rotated primitives can miss an axis-aligned sample lattice.
+      if(!chosen.length){const r=Math.min(...planes.map(plane=>plane.d-plane.n.dot(mid)));if(r>0)chosen.push({p:mid,r:r*.99});}
+      for(const ball of chosen)collision.push({p:ball.p.clone().sub(center).toArray(),r:ball.r});
+      geometry.dispose();
+    }
+    if(!collision.length)throw Error('この形状の当たり判定を作成できませんでした。');
+    return {type:'custom',name:data.name.trim()||'オリジナルキャラ',icon:data.icon||'🎁',message:data.message,
+      x:-1.48,z:-.50,rot:0,scale,custom:{data,paintImages,center,collision,bottom:bounds.min.y-center.y}};
+  }
+  function makeCustomPrizeMesh(def){
+    const group=new THREE.Group();
+    for(const part of def.custom.data.parts){
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
+      const ctx=canvas.getContext('2d');ctx.fillStyle=part.color;ctx.fillRect(0,0,512,512);
+      const image=def.custom.paintImages.get(part.id);if(image)ctx.drawImage(image,0,0,512,512);
+      const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
+      const material=new THREE.MeshStandardMaterial({map:texture,roughness:.88,metalness:0});
+      const mesh=new THREE.Mesh(customPrizeGeometry(part.type),material);
+      mesh.position.fromArray(part.position).sub(def.custom.center);mesh.scale.fromArray(part.scale);
+      mesh.rotation.set(...part.rotation.map(n=>n*Math.PI/180));mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+    }
+    return group;
+  }
+  function customPrizeImportStatus(message){$('customPrizeStatus').textContent=message;}
+  async function importCustomPrizeText(text){
+    if(customPrizeImportBusy)return;
+    if(!['idle','result'].includes(state.mode)){customPrizeImportStatus('プレイ終了後に読み込んでください。');return;}
+    if(prizeDefs.length>=16){customPrizeImportStatus('一度に追加できるオリジナル景品は12体までです。');return;}
+    customPrizeImportBusy=true;refreshPrizeMenu();customPrizeImportStatus('キャラクターを読み込んでいます…');
+    try{
+      const def=await prepareCustomPrize(text);
+      if(!['idle','result'].includes(state.mode))throw Error('プレイ終了後にもう一度読み込んでください。');
+      const index=prizeDefs.length;prizeDefs.push(def);
+      const button=document.createElement('button');button.className='prize-choice';button.dataset.prize=String(index);button.setAttribute('aria-pressed','false');
+      for(const [tag,text] of [['span',def.icon],['b',def.name],['small',def.message||'オリジナルキャラクター'],['em','選ぶ']]){const el=document.createElement(tag);el.textContent=text;button.appendChild(el);}
+      button.addEventListener('click',()=>selectPrize(index));document.querySelector('#prizeMenu .prize-choices').appendChild(button);
+      customPrizeImportStatus('「'+def.name+'」を追加しました。一覧から選んでください。');$('customPrizeText').value='';
+    }catch(error){customPrizeImportStatus(error.message||'読み込みに失敗しました。');}
+    finally{customPrizeImportBusy=false;refreshPrizeMenu();}
+  }
+
   const prizeScale = (def) => def.scale || 1;
-  const initialPrizeY = (def) => .44 * prizeScale(def) + .02;
+  const initialPrizeY = (def) => def.type==='custom' ? -def.custom.bottom*prizeScale(def)+.02 : .44 * prizeScale(def) + .02;
   const prizes = [];
   // Reference-based prize models. Everything below is confined to geometry,
   // materials and the sphere envelopes consumed by the existing claw system.
@@ -1224,6 +1332,7 @@ function startFullGame() {
   // Four distinct plush silhouettes. Structural spheres/capsules are shared
   // by rendering and physics; surface embroidery has no bulky hidden collider.
   function toyParts(def){
+    if(def.type==='custom')return def.custom.collision;
     if(def.type!=='sprite')return referenceCollisionParts(def.type);
     const ball=(p,r,m='fur')=>({p,r,m});
     const pill=(p,r,length,angle=0,m='fur')=>({p,r,length,angle,m});
@@ -1264,6 +1373,7 @@ function startFullGame() {
     return parts;
   }
   function makeToyMesh(def) {
+    if(def.type==='custom')return makeCustomPrizeMesh(def);
     if(def.type==='bear'||def.type==='bunny')return referenceAnimalMesh(def.type);
     if(def.type==='dog')return referenceDolphinMesh();
     const group=new THREE.Group();
@@ -2517,6 +2627,8 @@ function startFullGame() {
 
   function refreshPrizeMenu(){
     const canSelect=state.mode==='idle'||state.mode==='result';
+    $('customPrizeFileBtn').disabled=!canSelect||customPrizeImportBusy;
+    $('customPrizePasteBtn').disabled=!canSelect||customPrizeImportBusy;
     for(const button of document.querySelectorAll('[data-prize]')){
       const selected=Number(button.dataset.prize)===selectedPrizeIndex;
       button.disabled=!canSelect;
@@ -2536,7 +2648,7 @@ function startFullGame() {
         if(node.material)for(const material of Array.isArray(node.material)?node.material:[node.material])materialsToDispose.add(material);
         if(node.geometry && node.geometry!==standardSphere)geometriesToDispose.add(node.geometry);
       });
-      materialsToDispose.forEach(m=>m.dispose());geometriesToDispose.forEach(g=>g.dispose());
+      materialsToDispose.forEach(m=>{if(prize.def.type==='custom'&&m.map)m.map.dispose();m.dispose();});geometriesToDispose.forEach(g=>g.dispose());
     }
     prizes.length=0;selectedPrizeIndex=index;
     createPrize(selectedPrizeDefinition(index),0);
@@ -2629,6 +2741,13 @@ function startFullGame() {
   }
   $('prizeMenuBtn').addEventListener('click',()=>{refreshPrizeMenu();$('prizeMenu').showModal();});
   $('prizeMenuClose').addEventListener('click',()=>$('prizeMenu').close());
+  $('customPrizeFileBtn').addEventListener('click',()=>$('customPrizeFile').click());
+  $('customPrizeFile').addEventListener('change',async()=>{
+    const file=$('customPrizeFile').files[0];$('customPrizeFile').value='';if(!file)return;
+    if(file.size>12*1024*1024){customPrizeImportStatus('ファイルは12MBまでです。');return;}
+    try{await importCustomPrizeText(await file.text());}catch(error){customPrizeImportStatus('ファイルを読み込めませんでした。');}
+  });
+  $('customPrizePasteBtn').addEventListener('click',()=>importCustomPrizeText($('customPrizeText').value));
   for(const button of document.querySelectorAll('[data-prize]'))button.addEventListener('click',()=>selectPrize(Number(button.dataset.prize)));
   $('startBtn').addEventListener('click',()=>{
     if(state.mode!=='idle'&&state.mode!=='result')return;
@@ -2691,17 +2810,115 @@ function startFullGame() {
   window.addEventListener('keyup',e=>{const key=e.key.length===1?e.key.toLowerCase():e.key;keysDown.delete(key);});
   window.addEventListener('blur',()=>{keysDown.clear();stopMachine();});
 
+  // An independent presentation scene shares only immutable model resources.
+  // The live prize body, transforms, materials and the game renderer are untouched.
+  let winModelRenderer=null,winModelScene=null,winModelCamera=null,winModelPivot=null;
+  let winModelFrame=0,winModelStart=0,winModelLast=0,winModelRadius=1;
+  let winModelPointer=null,winModelDragX=0,winModelDragY=0,winModelManual=false;
+  const winModelSurface=$('winModelCanvas');
+  winModelSurface.addEventListener('pointerdown',e=>{
+    if(e.button!==0||winModelPointer!==null||!winModelPivot||!winModelPivot.children.length)return;
+    winModelPointer=e.pointerId;winModelDragX=e.clientX;winModelDragY=e.clientY;
+    winModelManual=true;
+    winModelSurface.setPointerCapture(e.pointerId);
+    e.preventDefault();e.stopPropagation();
+  });
+  winModelSurface.addEventListener('pointermove',e=>{
+    if(e.pointerId!==winModelPointer||!winModelPivot)return;
+    const rect=winModelSurface.getBoundingClientRect();
+    const sensitivity=Math.PI*2/Math.max(160,rect.width);
+    // No angle limit: the back, top and underside can all be inspected.
+    winModelPivot.rotation.order='YXZ';
+    winModelPivot.rotation.y+=(e.clientX-winModelDragX)*sensitivity;
+    winModelPivot.rotation.x+=(e.clientY-winModelDragY)*sensitivity;
+    winModelDragX=e.clientX;winModelDragY=e.clientY;
+    winModelRenderer.render(winModelScene,winModelCamera);
+    e.preventDefault();e.stopPropagation();
+  });
+  function endWinModelDrag(e){
+    if(e.pointerId!==winModelPointer)return;
+    winModelPointer=null;
+    if(winModelSurface.hasPointerCapture(e.pointerId))winModelSurface.releasePointerCapture(e.pointerId);
+  }
+  for(const event of ['pointerup','pointercancel','lostpointercapture'])winModelSurface.addEventListener(event,endWinModelDrag);
+  const winModelReducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+  function resizeWinModel(){
+    if(!winModelRenderer||!$('winOverlay').classList.contains('show'))return;
+    const rect=$('winModelView').getBoundingClientRect();
+    if(rect.width<=0||rect.height<=0)return;
+    winModelRenderer.setSize(rect.width,rect.height,false);
+    winModelCamera.aspect=rect.width/rect.height;
+    const vertical=winModelCamera.fov*Math.PI/360;
+    const horizontal=Math.atan(Math.tan(vertical)*winModelCamera.aspect);
+    const distance=winModelRadius/Math.sin(Math.min(vertical,horizontal))*1.12;
+    winModelCamera.position.set(0,distance*.07,distance);
+    winModelCamera.near=Math.max(.001,distance-winModelRadius*2);
+    winModelCamera.far=distance+winModelRadius*4;
+    winModelCamera.lookAt(0,0,0);winModelCamera.updateProjectionMatrix();
+    winModelRenderer.render(winModelScene,winModelCamera);
+  }
+  function stopWinModel(){
+    if(winModelPointer!==null)endWinModelDrag({pointerId:winModelPointer});
+    winModelManual=false;
+    cancelAnimationFrame(winModelFrame);winModelFrame=0;
+    if(winModelPivot){
+      // Cloned meshes share the original prize's geometry/textures: never dispose them here.
+      while(winModelPivot.children.length)winModelPivot.remove(winModelPivot.children[0]);
+      winModelRenderer.renderLists.dispose();
+    }
+  }
+  function showWinModel(prize){
+    stopWinModel();
+    const fallback=$('winModelFallback');
+    fallback.textContent=prize.def.icon||({bear:'🧸',bunny:'🐰',dog:'🐬',sprite:'🌟'})[prize.def.type]||'🎁';
+    try{
+      if(!winModelRenderer){
+        winModelRenderer=new THREE.WebGLRenderer({canvas:$('winModelCanvas'),alpha:true,antialias:true});
+        winModelRenderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+        winModelRenderer.outputEncoding=THREE.sRGBEncoding;winModelRenderer.setClearColor(0x000000,0);
+        winModelScene=new THREE.Scene();winModelCamera=new THREE.PerspectiveCamera(32,1,.01,100);
+        winModelScene.add(new THREE.HemisphereLight(0xffffff,0xc4b8d5,1.0));
+        const key=new THREE.DirectionalLight(0xfff5e9,.85);key.position.set(-3,5,5);winModelScene.add(key);
+        const fill=new THREE.DirectionalLight(0xe4ecff,.4);fill.position.set(4,2,-3);winModelScene.add(fill);
+        winModelPivot=new THREE.Group();winModelScene.add(winModelPivot);
+      }
+      const display=prize.mesh.clone(true);
+      display.position.set(0,0,0);display.quaternion.set(0,0,0,1);display.scale.setScalar(1);display.visible=true;
+      display.updateMatrixWorld(true);
+      const box=new THREE.Box3().setFromObject(display),sphere=box.getBoundingSphere(new THREE.Sphere());
+      display.position.sub(sphere.center);winModelRadius=Math.max(.01,sphere.radius);
+      winModelPivot.rotation.set(0,0,0);winModelPivot.add(display);
+      $('winModelCanvas').hidden=false;fallback.hidden=true;
+      $('winModelCanvas').setAttribute('aria-label',prize.def.name+'の3Dモデル');
+      winModelStart=performance.now();winModelLast=0;resizeWinModel();
+      function drawWinModel(now){
+        if(!$('winOverlay').classList.contains('show')){winModelFrame=0;return;}
+        winModelFrame=requestAnimationFrame(drawWinModel);
+        if(document.hidden||now-winModelLast<33)return;winModelLast=now;
+        // Gentle front-facing turn keeps the painted face visible.
+        if(!winModelManual)winModelPivot.rotation.y=winModelReducedMotion.matches?0:Math.sin((now-winModelStart)*.00055)*.28;
+        winModelRenderer.render(winModelScene,winModelCamera);
+      }
+      winModelFrame=requestAnimationFrame(drawWinModel);
+    }catch(error){
+      console.warn('Prize showcase could not be rendered:',error);
+      $('winModelCanvas').hidden=true;fallback.hidden=false;
+    }
+  }
+  window.addEventListener('resize',resizeWinModel);
+  new ResizeObserver(resizeWinModel).observe($('winModelView'));
+
   function showWinOverlay(prize){
     const overlay=$('winOverlay');
     $('winTitle').textContent='GET!!';
-    document.querySelector('.win-bear').textContent=({bear:'🧸',bunny:'🐰',dog:'🐬',sprite:'🌟'})[prize.def.type]||'🎁';
     $('winCaption').textContent=`「${prize.def.name}」を獲得！ おめでとう！`;
     $('winAttempts').textContent=`獲得までのプレイ回数：${state.round}回`;
     $('winSavings').textContent=`節約できた金額：${(state.round*100).toLocaleString('ja-JP')}円`;
     overlay.classList.add('show');
+    showWinModel(prize);
     $('winContinue').focus({preventScroll:true});
   }
-  function hideWinOverlay(){ $('winOverlay').classList.remove('show'); }
+  function hideWinOverlay(){ $('winOverlay').classList.remove('show');stopWinModel(); }
   document.body.appendChild($('winOverlay'));
   $('winContinue').addEventListener('click',hideWinOverlay);
   function finishRound(){
