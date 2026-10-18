@@ -63,6 +63,8 @@
   .action-side { display:flex; flex-direction:column; gap:9px; justify-self:stretch; }
   .action-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .btn { min-height:42px; padding:10px 13px; border-radius:12px; font-weight:800; font-size:12px; transition:transform .12s ease, filter .12s ease, opacity .12s ease; }
+  #skipBtn { position:absolute; right:14px; bottom:58px; z-index:8; min-width:88px; }
+  #skipBtn[hidden] { display:none; }
   .btn:active { transform:scale(.98); }
   .btn-primary { color:#68496f; background:linear-gradient(135deg,#fff2a9,#ffd0e8 55%,#cbbaff); box-shadow:0 5px 18px rgba(62,201,220,.14); }
   .btn-primary:hover:not(:disabled) { filter:brightness(1.08); }
@@ -242,6 +244,7 @@
 
   <main class="stage" id="stage">
     <canvas id="scene" aria-label="3D UFOキャッチャー"></canvas>
+    <button class="btn btn-primary" id="skipBtn" type="button" hidden aria-label="アームだけ初期位置に戻してプレイを終了">SKIP ≫</button>
     <div class="hud-left">
       <div class="hud-label">MACHINE STATUS</div>
       <div class="hud-status"><i class="status-dot" id="statusDot"></i><span id="statusText">READY TO PLAY</span></div>
@@ -916,6 +919,7 @@ function startFullGame() {
   physicsBox([0,-.10,(fieldBack+chuteBack)/2],[(fieldRight-fieldLeft)/2,.10,(chuteBack-fieldBack)/2]);
   physicsBox([(fieldLeft+chuteLeft)/2,-.10,(chuteBack+chuteFront)/2],[(chuteLeft-fieldLeft)/2,.10,(chuteFront-chuteBack)/2]);
   physicsBox([(chuteRight+fieldRight)/2,-.10,(chuteBack+chuteFront)/2],[(fieldRight-chuteRight)/2,.10,(chuteFront-chuteBack)/2]);
+  const skipPlayingFloorBodies=staticBodies.slice(); // Only the three playing-floor panels.
   // Cabinet walls / playfield boundary.
   physicsBox([-2.63,2.65,0],[.08,2.65,2.16]);
   physicsBox([2.63,2.65,0],[.08,2.65,2.16]);
@@ -2372,13 +2376,13 @@ function startFullGame() {
     const horizontalMoved=Math.hypot(dx,dz)>0.00002;
     // Ordinary horizontal movement (including transport to the prize chute)
     // always uses move.mp3. ONLY the trip back to HOME uses move2.mp3.
-    const returningHome=state.mode==='homing'&&state.homePhase==='travel';
+    const returningHome=(state.mode==='homing'||state.mode==='roundHome')&&state.homePhase==='travel';
     const ordinaryMove=(state.mode==='move'&&previousMode==='move')||
       (state.mode==='return'&&previousMode==='return');
     setAudioLoop('move',ordinaryMove&&horizontalMoved);
     setAudioLoop('move2',returningHome&&horizontalMoved);
     setAudioLoop('down',dy<-.00002&&state.mode==='lower');
-    setAudioLoop('up',dy>.00002&&(state.mode==='lift'||state.mode==='homing'));
+    setAudioLoop('up',dy>.00002&&(state.mode==='lift'||state.mode==='homing'||state.mode==='roundHome'));
 
     // Sound for the three fingers is phase-restricted, NOT triggered by every
     // physical claw movement: closing plays only while gripping a prize, and
@@ -2417,7 +2421,7 @@ function startFullGame() {
     machine.y=approach(machine.y,target,transport.verticalSpeed*dt);
   }
   let uiClock=0;
-  const modeText={homing:'RETURNING HOME',idle:'READY TO PLAY',move:'FREE MOVE',lower:'LOWERING',waitGrip:'WAITING FOR GRIP',grip:'GRIPPING',lift:'LIFTING',pauseTop:'PAUSING AT TOP',return:'RETURN TO CHUTE',dropPause:'READY TO RELEASE',release:'RELEASING',result:'ROUND COMPLETE'};
+  const modeText={roundHome:'RETURNING HOME',homing:'RETURNING HOME',idle:'READY TO PLAY',move:'FREE MOVE',lower:'LOWERING',waitGrip:'WAITING FOR GRIP',grip:'GRIPPING',lift:'LIFTING',pauseTop:'PAUSING AT TOP',return:'RETURN TO CHUTE',dropPause:'READY TO RELEASE',release:'RELEASING',result:'ROUND COMPLETE'};
   function showToast(title, text, seconds=1.8) {
     // Central gameplay toast intentionally disabled: it obscures the claw/prize.
     state.toastTimer=0;
@@ -2426,6 +2430,7 @@ function startFullGame() {
   function hideToast(){ $('toast').classList.remove('show'); }
   function updateUI(force=false) {
     if (!force && uiClock<.08) return; uiClock=0;
+    $('skipBtn').hidden=!canSkipReturn();
     refreshChance();
     $('prizeMenuBtn').disabled=false;
     if($('prizeMenu').open)refreshPrizeMenu();
@@ -2442,12 +2447,72 @@ function startFullGame() {
     $('dropLabel').textContent=state.mode==='move'?'下降':state.mode==='lower'?'ここで閉じる':'待機中';
     $('dropSymbol').textContent=state.mode==='lower'?'⇥':'↓';
     $('panelTimer').textContent=(state.mode==='move'?Math.max(0,state.timeLeft):state.mode==='idle'||state.mode==='result'||state.mode==='homing'?20:0).toFixed(1);
-    $('panelPhase').textContent=state.mode==='homing'?'RETURN HOME':state.mode==='move'?'PLAY':state.mode==='lower'?'PUSH AGAIN':state.mode==='idle'||state.mode==='result'?'READY':'AUTO';
+    $('panelPhase').textContent=(state.mode==='homing'||state.mode==='roundHome')?'RETURN HOME':state.mode==='move'?'PLAY':state.mode==='lower'?'PUSH AGAIN':state.mode==='idle'||state.mode==='result'?'READY':'AUTO';
     document.querySelector('.console').dataset.mode=state.mode;
     $('panelLamp').className=['idle','result'].includes(state.mode)?'':'on';
-    $('tipText').textContent=state.mode==='homing'?'初期位置へ移動中 · 到着後に20秒スタート':state.mode==='move'?'ハンドルで位置を調整 · 残り時間内に狙いを定めよう':state.mode==='lower'?'アーム降下中 · もう一度押すとその高さで閉じます':state.mode==='waitGrip'?'アーム位置を確認中':state.mode==='grip'?'接触した指は停止し、離れると再び閉じます':state.mode==='lift'||state.mode==='pauseTop'||state.mode==='return'||state.mode==='dropPause'||state.mode==='release'?'物理演算で景品を搬送中':'ハンドルで位置を調整 · ゲームスタートで開始';
-    $('controlDesc').textContent=state.mode==='homing'?'初期位置へ移動中。到着後に操作できます。':state.mode==='move'?'20秒間は自由に操作できます。景品の真上にアームを合わせよう。':state.mode==='lower'||state.mode==='waitGrip'?'もう一度ボタンを押すと、その高さで停止して閉じます。最下部では自動で閉じます。':'ハンドルをドラッグ / スワイプして左右・奥行きを調整。操作時間は20秒です。';
+    $('tipText').textContent=state.mode==='roundHome'?'初期位置へ移動中 · 到着するとプレイ終了':state.mode==='homing'?'初期位置へ移動中 · 到着後に20秒スタート':state.mode==='move'?'ハンドルで位置を調整 · 残り時間内に狙いを定めよう':state.mode==='lower'?'アーム降下中 · もう一度押すとその高さで閉じます':state.mode==='waitGrip'?'アーム位置を確認中':state.mode==='grip'?'接触した指は停止し、離れると再び閉じます':state.mode==='lift'||state.mode==='pauseTop'||state.mode==='return'||state.mode==='dropPause'||state.mode==='release'?'物理演算で景品を搬送中':'ハンドルで位置を調整 · ゲームスタートで開始';
+    $('controlDesc').textContent=state.mode==='roundHome'?'初期位置に戻っています。到着後に次のゲームを開始できます。':state.mode==='homing'?'初期位置へ移動中。到着後に操作できます。':state.mode==='move'?'20秒間は自由に操作できます。景品の真上にアームを合わせよう。':state.mode==='lower'||state.mode==='waitGrip'?'もう一度ボタンを押すと、その高さで停止して閉じます。最下部では自動で閉じます。':'ハンドルをドラッグ / スワイプして左右・奥行きを調整。操作時間は20秒です。';
     $('actionCaption').textContent=state.mode==='move'?'①で下降、②でその場で閉じます。':state.mode==='lower'||state.mode==='waitGrip'?'好きな高さで②を押そう。押さない場合は最下部で自動で閉じます。':'景品は重力・摩擦・衝突によって転倒したり、落下したりします。';
+  }
+
+  // SKIP is an opt-in shortcut; normal motion and prize physics are unchanged.
+  const skipMinPrizeGap=.5; // 爪と景品の最短表面間距離（ゲーム内単位）
+  const skipFloorTolerance=.015; // 接触ソルバーの微小な隙間を許容
+  function skipPrizeOnFloor(prize){
+    const center=new CANNON.Vec3();
+    for(let i=0;i<prize.body.shapes.length;i++){
+      const sphere=prize.body.shapes[i];
+      if(!(sphere instanceof CANNON.Sphere))continue;
+      prize.body.pointToWorldFrame(prize.body.shapeOffsets[i],center);
+      for(const floor of skipPlayingFloorBodies){
+        const h=floor.shapes[0].halfExtents, top=floor.position.y+h.y;
+        if(center.y<top)continue;
+        const dx=Math.max(0,Math.abs(center.x-floor.position.x)-h.x);
+        const dz=Math.max(0,Math.abs(center.z-floor.position.z)-h.z);
+        // Sphere-to-floor-top contact, including panel edges. Works while asleep;
+        // walls, shields and the collection basket never qualify as the floor.
+        if(Math.hypot(dx,center.y-top,dz)-sphere.radius<=skipFloorTolerance)return true;
+      }
+    }
+    return false;
+  }
+  function canSkipReturn(){
+    if(!['lift','pauseTop','return','dropPause','release'].includes(state.mode)||state.roundWon>0)return false;
+    const remaining=prizes.filter(p=>!p.won&&!p.hidden);
+    return remaining.length>0 && remaining.every(p=>skipPrizeOnFloor(p) &&
+      fingerUnits.every((_,i)=>fingerPrizeDistance(i,p)>=skipMinPrizeGap));
+  }
+  function skipReturn(){
+    // Recheck on click so an outdated visible button cannot skip a held prize.
+    if(!canSkipReturn())return;
+    // Exit automatic transport/release immediately; SKIP never visits the chute.
+    state.mode='idle';state.openWaitElapsed=0;
+    stopMachine();keysDown.clear();pointerActive=false;
+    clearGrip();activeClawContacts.clear();fingerGapResumeEnabled.value=false;
+    ceilingControl.active=false;ceilingControl.releasing=false;
+    ceilingControl.elapsed=0;ceilingControl.ticks=0;ceilingControl.targets.fill(0);
+    state.ceilingReached=false;
+    transport.verticalSpeed=0;transport.returnSpeed=0;
+    fingerClose.fill(0);fingerContactLimit.fill(null);
+    fingerBlocked.fill(false);fingerHadRealContact.fill(false);
+    clawServo.value=0;clawServo.velocity=0;setClawTarget(0);
+    machine.x=HOME_X;machine.y=homeY;machine.z=HOME_Z;machine.close=0;
+    for(const f of fingerUnits){
+      f.initialized=false;f.previousHinge=undefined;
+      clawContactFrame.delete(f.body);clawContactUntil.delete(f.body);
+    }
+    updateClawGeometry(1/120);
+    // Teleport only the claw; never integrate a high-speed trip across the field.
+    for(const f of fingerUnits){
+      const b=f.body;
+      b.velocity.set(0,0,0);b.angularVelocity.set(0,0,0);
+      b.previousPosition.copy(b.position);b.interpolatedPosition.copy(b.position);
+      b.previousQuaternion.copy(b.quaternion);b.interpolatedQuaternion.copy(b.quaternion);
+      b.aabbNeedsUpdate=true;
+    }
+    for(const key of Object.keys(activeLoops))setAudioLoop(key,false);
+    clawAudioHold.close=0;clawAudioHold.open=0;
+    finishRound();
   }
 
   function refreshPrizeMenu(){
@@ -2527,6 +2592,13 @@ function startFullGame() {
     if(distance>1e-8){machine.x+=dx/distance*travel;machine.z+=dz/distance*travel;}
     if(distance<=travel+1e-8 && Math.max(...fingerClose)<.01){
       machine.x=HOME_X;machine.z=HOME_Z;machine.y=homeY;
+      if(state.mode==='roundHome'){
+        stopMachine();keysDown.clear();
+        ceilingControl.releasing=false;fingerClose.fill(0);
+        clawServo.value=0;clawServo.velocity=0;machine.close=0;setClawTarget(0);
+        finishRound();
+        return;
+      }
       if(state.resetOnHome)resetPrizes();
       stopMachine();keysDown.clear();
       state.round++;state.timeLeft=20;state.mode='move';
@@ -2563,6 +2635,7 @@ function startFullGame() {
     playStartAndBgm();
     startGame();
   });
+  $('skipBtn').addEventListener('click',skipReturn);
   $('dropBtn').addEventListener('click',pressDrop);
   $('resetBtn').addEventListener('click',()=>{
     if(state.mode==='homing')return;
@@ -2632,7 +2705,10 @@ function startFullGame() {
   document.body.appendChild($('winOverlay'));
   $('winContinue').addEventListener('click',hideWinOverlay);
   function finishRound(){
-    state.mode='result'; state.timeLeft=20;
+    // Both SKIP and ordinary return finish in the pre-start waiting state.
+    state.mode='idle'; state.timeLeft=20;
+    state.grabElapsed=0;state.releaseElapsed=0;state.topPauseElapsed=0;
+    state.ceilingReached=false;state.homePhase=null;state.resetOnHome=false;
     chanceMode.current=false;
     prepareChance();
     if(state.roundWon===0)playOneShot('miss');
@@ -2643,6 +2719,7 @@ function startFullGame() {
   function updateGame(dt) {
     if(state.toastTimer>0){state.toastTimer-=dt;if(state.toastTimer<=0)hideToast();}
     switch(state.mode){
+      case 'roundHome':
       case 'homing': updateHome(dt);break;
       case 'move':
         {
@@ -2702,14 +2779,24 @@ function startFullGame() {
       case 'dropPause':
         state.releaseElapsed+=dt;
         if(state.releaseElapsed>=.35){
-          state.mode='release';state.releaseElapsed=0;
+          state.mode='release';state.releaseElapsed=0;state.openWaitElapsed=0;
           ceilingControl.active=false;ceilingControl.releasing=true;
           clawServo.value=Math.max(...fingerClose);clawServo.velocity=0;setClawTarget(0);
         }
         break;
       case 'release':
         state.releaseElapsed+=dt; setClawTarget(0);
-        if(state.releaseElapsed>=1.0 && Math.max(...fingerClose)<.05){ceilingControl.releasing=false;state.mode='result';finishRound();}
+        // Start the one-second pause only after all three fingers are fully open.
+        if(Math.max(...fingerClose)<=.001)state.openWaitElapsed=(state.openWaitElapsed||0)+dt;
+        else state.openWaitElapsed=0;
+        if(state.openWaitElapsed>=1.0){
+          // Finish only after the empty, open claw returns to the starting point.
+          state.mode='roundHome';state.homePhase='raise';state.resetOnHome=false;
+          transport.verticalSpeed=0;transport.returnSpeed=0;
+          ceilingControl.active=false;ceilingControl.releasing=true;
+          fingerGapResumeEnabled.value=false;clearGrip();setClawTarget(0);
+          stopMachine();keysDown.clear();
+        }
         break;
     }
     uiClock+=dt; updateUI();
