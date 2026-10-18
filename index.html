@@ -968,8 +968,21 @@ function startFullGame() {
   ];
   // Imported creator models use a separate branch; built-in prize paths are unchanged.
   let customPrizeImportBusy=false;
-function customPrizeGeometry(type){const T=THREE;if(type==='sphere'||type==='ellipsoid')return new T.SphereGeometry(.5,32,24);if(type==='cylinder')return new T.CylinderGeometry(.5,.5,1,32);if(type==='cone')return new T.ConeGeometry(.5,1,32);if(type==='triangle'){const sh=new T.Shape();sh.moveTo(-.5,-.5);sh.lineTo(.5,-.5);sh.lineTo(0,.5);sh.closePath();const g=new T.ExtrudeGeometry(sh,{depth:1,bevelEnabled:false});g.translate(0,0,-.5);const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,pos.getX(i)+.5,pos.getY(i)+.5);return g}return new T.BoxGeometry(1,1,1)}
-function validateCustomPrize(text){const LIMIT=60;if(text.length>12*1024*1024)throw Error('ファイルが大きすぎます（12MBまで）');let d;try{d=JSON.parse(text)}catch(e){throw Error('テキストの形式が正しくありません')}if(d.format!=='fuwamoco-character'||d.version!==1||!Array.isArray(d.parts)||d.parts.length>LIMIT)throw Error('この工房の対応データではありません');const clean={format:d.format,version:1,name:String(d.name||'').slice(0,40),icon:String(d.icon||'').slice(0,24),message:String(d.message||'').slice(0,140),parts:[]};for(let i=0;i<d.parts.length;i++){const a=d.parts[i];if(!a||!['sphere','ellipsoid','cylinder','cone','triangle','box'].includes(a.type))throw Error('パーツの種類が正しくありません');for(const [k,min,max]of[['position',-3,3],['scale',.02,3],['rotation',-180,180]])if(!Array.isArray(a[k])||a[k].length!==3||a[k].some(n=>typeof n!=='number'||!Number.isFinite(n)||n<min||n>max))throw Error('パーツの数値が範囲外です');if(!/^#[0-9a-f]{6}$/i.test(a.color))throw Error('色の形式が正しくありません');if(a.paint!=null&&(typeof a.paint!=='string'||a.paint.length>1500000||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a.paint)))throw Error('ペイントの形式が正しくありません');clean.parts.push({id:'p'+(i+1),type:a.type,name:String(a.name||'パーツ').slice(0,32),position:a.position.slice(),scale:a.scale.slice(),rotation:a.rotation.slice(),color:a.color,paint:a.paint||null})}return clean}
+function rawCustomPrizeGeometry(type){const T=THREE;if(type==='sphere'||type==='ellipsoid')return new T.SphereGeometry(.5,32,24);if(type==='cylinder')return new T.CylinderGeometry(.5,.5,1,32);if(type==='cone')return new T.ConeGeometry(.5,1,32);if(type==='triangle'){const sh=new T.Shape();sh.moveTo(-.5,-.5);sh.lineTo(.5,-.5);sh.lineTo(0,.5);sh.closePath();const g=new T.ExtrudeGeometry(sh,{depth:1,bevelEnabled:false});g.translate(0,0,-.5);const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,pos.getX(i)+.5,pos.getY(i)+.5);return g}return new T.BoxGeometry(1,1,1)}
+function customSurfaceAtlas(g,type){
+ const source=g.index?g.toNonIndexed():g.clone();g.dispose();const uv=source.attributes.uv,pos=source.attributes.position;
+ const groups=source.groups.length?source.groups:[{start:0,count:pos.count}];
+ const slots=type==='triangle'?pos.count/3:groups.length,cols=Math.ceil(Math.sqrt(slots)),rows=Math.ceil(slots/cols),pad=.012;
+ for(let i=0;i<pos.count;i++){
+   const slot=type==='triangle'?Math.floor(i/3):Math.max(0,groups.findIndex(q=>i>=q.start&&i<q.start+q.count));
+   let u=uv.getX(i),v=uv.getY(i);
+   if(type==='triangle'){u=[0,1,0][i%3];v=[0,0,1][i%3]}
+   uv.setXY(i,((slot%cols)+pad+u*(1-2*pad))/cols,(Math.floor(slot/cols)+pad+v*(1-2*pad))/rows);
+ }
+ return source;
+}
+function customPrizeGeometry(type,layout){const g=rawCustomPrizeGeometry(type);return layout==='surface-v2'&&!['sphere','ellipsoid'].includes(type)?customSurfaceAtlas(g,type):g}
+function validateCustomPrize(text){const LIMIT=60;if(text.length>12*1024*1024)throw Error('ファイルが大きすぎます（12MBまで）');let d;try{d=JSON.parse(text)}catch(e){throw Error('テキストの形式が正しくありません')}if(d.format!=='fuwamoco-character'||d.version!==1||!Array.isArray(d.parts)||d.parts.length>LIMIT)throw Error('この工房の対応データではありません');const clean={format:d.format,version:1,name:String(d.name||'').slice(0,40),icon:String(d.icon||'').slice(0,24),message:String(d.message||'').slice(0,140),parts:[]};for(let i=0;i<d.parts.length;i++){const a=d.parts[i];if(!a||!['sphere','ellipsoid','cylinder','cone','triangle','box'].includes(a.type))throw Error('パーツの種類が正しくありません');for(const [k,min,max]of[['position',-3,3],['scale',.02,3],['rotation',-180,180]])if(!Array.isArray(a[k])||a[k].length!==3||a[k].some(n=>typeof n!=='number'||!Number.isFinite(n)||n<min||n>max))throw Error('パーツの数値が範囲外です');if(!/^#[0-9a-f]{6}$/i.test(a.color))throw Error('色の形式が正しくありません');if(a.paint!=null&&(typeof a.paint!=='string'||a.paint.length>1500000||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a.paint)))throw Error('ペイントの形式が正しくありません');clean.parts.push({id:'p'+(i+1),type:a.type,name:String(a.name||'パーツ').slice(0,32),position:a.position.slice(),scale:a.scale.slice(),rotation:a.rotation.slice(),color:a.color,paint:a.paint||null,...(a.uvLayout==='surface-v2'?{uvLayout:'surface-v2'}:{})})}return clean}
   async function prepareCustomPrize(text){
     const data=validateCustomPrize(text);
     if(!data.parts.length)throw Error('パーツがないキャラクターは景品にできません。');
@@ -1034,7 +1047,7 @@ function validateCustomPrize(text){const LIMIT=60;if(text.length>12*1024*1024)th
       const image=def.custom.paintImages.get(part.id);if(image)ctx.drawImage(image,0,0,512,512);
       const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
       const material=new THREE.MeshStandardMaterial({map:texture,roughness:.88,metalness:0});
-      const mesh=new THREE.Mesh(customPrizeGeometry(part.type),material);
+      const mesh=new THREE.Mesh(customPrizeGeometry(part.type,part.uvLayout),material);
       mesh.position.fromArray(part.position).sub(def.custom.center);mesh.scale.fromArray(part.scale);
       mesh.rotation.set(...part.rotation.map(n=>n*Math.PI/180));mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
     }
