@@ -298,7 +298,7 @@
   <div class="prize-choices">
     <button class="prize-choice" data-prize="0" aria-pressed="true"><span>🧸</span><b>おおきなくま</b><small>ふわふわの定番</small><em>選択中</em></button>
     <button class="prize-choice" data-prize="1" aria-pressed="false"><span>🐰</span><b>いちごミルクうさぎ</b><small>ピンクの長いお耳</small><em>選ぶ</em></button>
-    <button class="prize-choice" data-prize="2" aria-pressed="false"><span>🐶</span><b>たれみみのポチ</b><small>やさしいミルクティー色</small><em>選ぶ</em></button>
+    <button class="prize-choice" data-prize="2" aria-pressed="false"><span>🐬</span><b>ふわふわイルカ</b><small>青い背中とやさしい笑顔</small><em>選ぶ</em></button>
     <button class="prize-choice" data-prize="3" aria-pressed="false"><span>🌟</span><b>おほしさまのモコ</b><small>星飾りのオリジナルキャラ</small><em>選ぶ</em></button>
   </div>
   <p class="menu-footnote">切り替えると景品は初期配置に戻ります。<br>プレイ中は変更できません。</p>
@@ -643,7 +643,7 @@ function startFullGame() {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding; // Three.js r150 uses outputEncoding
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.95;
+  renderer.toneMappingExposure = 0.90;
 
   // Touch / mouse camera controls. One-finger swipe rotates the cabinet view;
   // two-finger pinch zooms and two-finger drag gently pans the target. These
@@ -717,14 +717,14 @@ function startFullGame() {
     applyView();
   },{passive:false});
 
-  scene.add(new THREE.HemisphereLight(0xe3f4ff, 0x65758f, 1.25));
-  const keyLight = new THREE.DirectionalLight(0xf2f8ff, 1.8);
+  scene.add(new THREE.HemisphereLight(0xe3f4ff, 0x65758f, 0.65));
+  const keyLight = new THREE.DirectionalLight(0xf2f8ff, 1.5);
   keyLight.position.set(-4.5, 10, 6); keyLight.castShadow = true;
   keyLight.shadow.mapSize.set(1024,1024); keyLight.shadow.camera.left=-8; keyLight.shadow.camera.right=8;
   keyLight.shadow.camera.top=9; keyLight.shadow.camera.bottom=-6; keyLight.shadow.bias=-0.0004;
   scene.add(keyLight);
-  const rimLight = new THREE.PointLight(0xffb9dd, 13, 13); rimLight.position.set(2.6,4.5,-2.5); scene.add(rimLight);
-  const pinkLight = new THREE.PointLight(0xc9a9ff, 14, 9); pinkLight.position.set(-3,2.8,3); scene.add(pinkLight);
+  const rimLight = new THREE.PointLight(0xffb9dd, 0.8, 13); rimLight.position.set(2.6,4.5,-2.5); scene.add(rimLight);
+  const pinkLight = new THREE.PointLight(0xc9a9ff, 0.6, 9); pinkLight.position.set(-3,2.8,3); scene.add(pinkLight);
 
   const mat = (color, roughness=.55, metalness=0, extra={}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
   const materials = {
@@ -775,7 +775,7 @@ function startFullGame() {
   floorTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   // Extend the same single tiled floor beyond all camera positions; no edge cuts.
   floorTexture.repeat.set(28,28);
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({map:floorTexture,color:0xfffbf4,roughness:.76,metalness:.03}));
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({map:floorTexture,color:0x777b89,roughness:.92,metalness:.0}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-1.55;ground.receiveShadow=true;scene.add(ground);
   const chanceGroundNormalColor=ground.material.color.clone();
   const platform = new THREE.Mesh(new THREE.BoxGeometry(7.0,.32,5.8), mat(0xe8cde7,.4,.08));
@@ -795,7 +795,7 @@ function startFullGame() {
   // Shared dimensions drive both the rendered floor and the physics opening.
   // The hole is intentionally generous, while the surrounding floor is built
   // from three clean panels so there are no hidden floor pieces under it.
-  const playfieldMat = mat(0xe6def0,.72,.04);
+  const playfieldMat = mat(0x24192f,.94,.0);
   const fieldLeft=-2.625, fieldRight=2.625, fieldBack=-2.10, fieldFront=2.10;
   const chuteW=2.40, chuteD=1.75, chuteCenterX=1.35, chuteCenterZ=1.225;
   const chuteLeft=chuteCenterX-chuteW/2, chuteRight=chuteCenterX+chuteW/2;
@@ -807,7 +807,7 @@ function startFullGame() {
   boxMesh(cabinet,[fieldRight-chuteRight,floorT,chuteFront-chuteBack],playfieldMat,[(chuteRight+fieldRight)/2,floorY,(chuteBack+chuteFront)/2]);
 
   // Fine grooves are clipped to the floor panels and never cross the opening.
-  const grooveMat = mat(0xb4a7c8,.6,.05,{transparent:true,opacity:.36});
+  const grooveMat = mat(0x655773,.9,.0,{transparent:true,opacity:.24});
   for(let gx=-2;gx<=0;gx+=1) boxMesh(cabinet,[.012,.008,chuteBack-fieldBack-.08],grooveMat,[gx,.006,(fieldBack+chuteBack)/2],{cast:false,receive:false});
   for(let gz=-1.5;gz<=0;gz+=.5) boxMesh(cabinet,[fieldRight-fieldLeft-.08,.008,.012],grooveMat,[0,.006,gz],{cast:false,receive:false});
 
@@ -943,103 +943,445 @@ function startFullGame() {
     // Fixed assortment; continuing preserves each prize's position.
     {type:'bear',name:'おおきなくま',color:0xbf5424,belly:0xffd09b,x:0.08,z:0.10,rot:-.08,scale:1.55},
     {type:'bunny',name:'いちごミルクうさぎ',color:0xff8fc3,belly:0xfff3fa,x:-1.40,z:-1.12,rot:.14,scale:1.45},
-    {type:'dog',name:'たれみみのポチ',color:0xffaa24,belly:0xffe7b2,x:1.45,z:-1.12,rot:-.16,scale:1.45},
-    {type:'sprite',name:'おほしさまのモコ',color:0x8e78ff,belly:0xffe58d,x:-1.45,z:1.00,rot:.12,scale:1.45},
+    {type:'dog',name:'ふわふわイルカ',color:0x086bd6,belly:0x74bdea,x:1.45,z:-1.12,rot:-.16,scale:1.45},
+    {type:'sprite',name:'おほしさまのモコ',color:0xffc800,belly:0xffe684,x:-1.45,z:1.00,rot:.12,scale:1.90},
   ];
   const prizeScale = (def) => def.scale || 1;
   const initialPrizeY = (def) => .44 * prizeScale(def) + .02;
   const prizes = [];
-  function makeToyMesh(def) {
-    const group = new THREE.Group();
-    const fur = mat(def.color,.92,.0);
-    const bellyMat = mat(def.belly,.95,.0);
-    const inner = mat(def.type==='bunny'?0xff5fa2:(def.type==='cat'?0x657a99:0x69340f),.95,0);
-    const dark = mat(0x202334,.5,0);
-    const shine = mat(0xffffff,.25,0);
-    // Main plush silhouette, matching the compound collision approximations below.
-    addMesh(group,standardSphere,fur,[0,0,0],[.255,.315,.205]);
-    addMesh(group,standardSphere,bellyMat,[0,-.025,.175],[.155,.205,.045],false,false);
-    addMesh(group,standardSphere,fur,[0,.37,0],[.218,.22,.195]);
-    // Ears: bunny ears are taller and lean slightly outward.
-    if (def.type==='bunny') {
-      const e1=addMesh(group,standardSphere,fur,[-.125,.595,0],[.07,.20,.074]); e1.rotation.z=-.13;
-      const e2=addMesh(group,standardSphere,fur,[.125,.595,0],[.07,.20,.074]); e2.rotation.z=.13;
-      const i1=addMesh(group,standardSphere,inner,[-.125,.598,.061],[.033,.13,.016]); i1.rotation.z=-.13;
-      const i2=addMesh(group,standardSphere,inner,[.125,.598,.061],[.033,.13,.016]); i2.rotation.z=.13;
-    } else if(def.type==='dog'){
-      const earMat=mat(0xb96320,.95,0);
-      for(const sign of [-1,1]){
-        const ear=addMesh(group,standardSphere,earMat,[sign*.23,.36,-.015],[.092,.205,.085]);ear.rotation.z=sign*.18;
-      }
-      addMesh(group,standardSphere,bellyMat,[0,.315,.18],[.105,.065,.055]);
-      addMesh(group,standardSphere,mat(0xf297ac,.9),[0,.273,.215],[.025,.042,.012]);
-    } else if(def.type==='sprite'){
-      for(const sign of [-1,1]){
-        addMesh(group,standardSphere,fur,[sign*.19,.53,0],[.10,.11,.085]);
-      }
-      const star=new THREE.Shape();
-      for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.045:.10;const x=Math.cos(a)*r,y=Math.sin(a)*r;if(i===0)star.moveTo(x,y);else star.lineTo(x,y);}star.closePath();
-      const badge=new THREE.Mesh(new THREE.ShapeGeometry(star),mat(0xffd76c,.55));badge.position.set(0,.57,.17);group.add(badge);
-      addMesh(group,standardSphere,shine,[0,-.02,.218],[.046,.055,.012]);
-    } else if (def.type==='cat') {
-      const earGeo = new THREE.ConeGeometry(.105,.22,3);
-      const e1 = addMesh(group,earGeo,fur,[-.145,.555,0],[1,1,1]); e1.rotation.z=-.16; e1.rotation.x=-.08;
-      const e2 = addMesh(group,earGeo,fur,[.145,.555,0],[1,1,1]); e2.rotation.z=.16; e2.rotation.x=-.08;
-      addMesh(group,standardSphere,inner,[-.145,.557,.045],[.038,.08,.022],false,false);
-      addMesh(group,standardSphere,inner,[.145,.557,.045],[.038,.08,.022],false,false);
-    } else {
-      addMesh(group,standardSphere,fur,[-.145,.54,0],[.09,.095,.08]);
-      addMesh(group,standardSphere,fur,[.145,.54,0],[.09,.095,.08]);
+  // Reference-based prize models. Everything below is confined to geometry,
+  // materials and the sphere envelopes consumed by the existing claw system.
+  let referenceFurMap=null;
+  const referenceCollisionCache=new Map();
+  function referenceFurTexture(){
+    if(referenceFurMap)return referenceFurMap;
+    const size=256,data=new Uint8Array(size*size*4);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const hash=(Math.sin(x*127.1+y*311.7)*43758.5453)%1;
+      const grain=Math.abs(hash),thread=.5+.5*Math.sin(x*.92+Math.sin(y*.31)*2.4);
+      const v=Math.round(115+75*grain+35*thread),i=(y*size+x)*4;
+      data[i]=data[i+1]=data[i+2]=v;data[i+3]=255;
     }
-    // Paws and feet
-    addMesh(group,standardSphere,fur,[-.295,.055,0],[.12,.145,.12]);
-    addMesh(group,standardSphere,fur,[.295,.055,0],[.12,.145,.12]);
-    addMesh(group,standardSphere,fur,[-.135,-.275,.035],[.135,.145,.145]);
-    addMesh(group,standardSphere,fur,[.135,-.275,.035],[.135,.145,.145]);
-    // Face points toward the front glass (+Z)
-    addMesh(group,standardSphere,dark,[-.075,.403,.174],[.026,.032,.018],false,false);
-    addMesh(group,standardSphere,dark,[.075,.403,.174],[.026,.032,.018],false,false);
-    addMesh(group,standardSphere,shine,[-.082,.416,.19],[.008,.009,.006],false,false);
-    addMesh(group,standardSphere,shine,[.068,.416,.19],[.008,.009,.006],false,false);
-    addMesh(group,standardSphere,inner,[0,.355,.195],[.032,.024,.022],false,false);
-    // Tiny blush patches
-    addMesh(group,standardSphere,mat(0xffb2c8,.95),[-.13,.35,.164],[.032,.017,.01],false,false);
-    addMesh(group,standardSphere,mat(0xffb2c8,.95),[.13,.35,.164],[.032,.017,.01],false,false);
+    const t=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);
+    t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(5,5);
+    t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps=true;t.needsUpdate=true;referenceFurMap=t;return t;
+  }
+  function referenceAnimalParts(type){
+    const e=(name,p,size,material='fur',rz=0)=>({name,p,size,material,rz});
+    if(type==='bear'){
+      const parts=[
+        e('torso',[0,-.10,0],[.185,.32,.166]),
+        e('head',[0,.345,0],[.223,.207,.183]),
+        e('muzzle',[0,.285,.168],[.102,.075,.068],'muzzle'),
+        e('tail',[0,-.25,-.151],[.067,.067,.068])
+      ];
+      for(const k of [-1,1])parts.push(
+        e('ear',[k*.17,.51,-.008],[.085,.082,.064]),
+        e('hand',[k*.222,-.055,.015],[.074,.225,.084],'fur',k*.23),
+        // The feet project FORWARD from the seated hips, not downward.
+        e('foot',[k*.135,-.30,.177],[.13,.12,.169],'fur',-k*.045)
+      );
+      return parts;
+    }
+    const parts=[
+      e('torso',[0,-.14,0],[.168,.245,.154]),
+      e('head',[0,.18,.006],[.207,.186,.176]),
+      e('tail',[0,-.26,-.14],[.062,.062,.065],'cream'),
+      e('muzzle-left',[-.04,.128,.165],[.062,.055,.046],'cream'),
+      e('muzzle-right',[.04,.128,.165],[.062,.055,.046],'cream')
+    ];
+    for(const k of [-1,1])parts.push(
+      e('ear',[k*.105,.46,.015],[.062,.185,.060],'fur',-k*.10),
+      e('hand',[k*.157,-.075,.105],[.06,.139,.067],'fur',k*.27),
+      e('foot',[k*.111,-.295,.143],[.102,.092,.138],'fur',-k*.06)
+    );
+    return parts;
+  }
+  function referenceEllipsoidSurface(part,x,y){
+    const a=part.rz||0,dx=x-part.p[0],dy=y-part.p[1];
+    const u=Math.cos(a)*dx+Math.sin(a)*dy,v=-Math.sin(a)*dx+Math.cos(a)*dy;
+    const q=1-(u/part.size[0])**2-(v/part.size[1])**2;
+    return q>=0?part.p[2]+part.size[2]*Math.sqrt(q):null;
+  }
+  function referenceEllipsePatch(group,part,cx,cy,rx,ry,material,offset=.002){
+    const vertices=[],uv=[],indices=[],rings=12,segments=48;
+    for(let j=0;j<=rings;j++)for(let i=0;i<=segments;i++){
+      const a=i/segments*Math.PI*2,r=j/rings,x=cx+rx*r*Math.cos(a),y=cy+ry*r*Math.sin(a);
+      const z=referenceEllipsoidSurface(part,x,y);
+      vertices.push(x,y,(z===null?part.p[2]:z)+offset);uv.push(.5+.5*r*Math.cos(a),.5+.5*r*Math.sin(a));
+    }
+    for(let j=0;j<rings;j++)for(let i=0;i<segments;i++){
+      const a=j*(segments+1)+i,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1);
+    }
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();
+    return addMesh(group,g,material,null,null,false,true);
+  }
+  function referenceAnimalMesh(type){
+    const group=new THREE.Group(),isBear=type==='bear';
+    const plush=(c)=>mat(c,.98,0,{bumpMap:referenceFurTexture(),bumpScale:.0018});
+    const materials={fur:plush(isBear?0xad4918:0xe51b72),muzzle:plush(0xc98236),cream:plush(isBear?0xdba151:0xff89b5),
+      inner:plush(isBear?0x733b20:0xad245b),sole:plush(isBear?0xaa5724:0xf75699),
+      ink:mat(0x251b1b,.22),nose:mat(isBear?0x42261b:0xa51c5d,.8),shine:mat(0xfffaf4,.15)};
+    const sphere=new THREE.SphereGeometry(1,48,36),parts=referenceAnimalParts(type);
+    for(const p of parts){
+      const mesh=addMesh(group,sphere,materials[p.material],p.p,p.size);mesh.rotation.z=p.rz||0;mesh.name=p.name;
+    }
+    const head=parts.find(p=>p.name==='head'),torso=parts[0];
+    // Embroidery follows the actual curved surface; no detached flat decals.
+    const eyeY=isBear?.375:.205,eyeX=isBear?.086:.080;
+    for(const k of [-1,1]){
+      const x=k*eyeX,z=referenceEllipsoidSurface(head,x,eyeY);
+      addMesh(group,sphere,materials.ink,[x,eyeY,z+.004],[.017,.021,.014],false,true);
+      addMesh(group,sphere,materials.shine,[x-.004,eyeY+.007,z+.017],[.0045,.005,.0025],false,false);
+    }
+    for(const k of [-1,1]){
+      const ear=parts.find(p=>p.name==='ear'&&p.p[0]*k>0);
+      if(isBear)referenceEllipsePatch(group,ear,k*.17,.51,.048,.047,materials.inner);
+      else referenceEllipsePatch(group,ear,k*.105,.47,.031,.13,materials.sole);
+      const foot=parts.find(p=>p.name==='foot'&&p.p[0]*k>0);
+      referenceEllipsePatch(group,foot,foot.p[0],foot.p[1]+.004,isBear?.080:.064,isBear?.075:.054,materials.sole);
+    }
+    if(!isBear)referenceEllipsePatch(group,torso,0,-.142,.100,.19,materials.cream);
+    const noseY=isBear?.31:.147,noseZ=isBear?.237:.214;
+    // A small bevelled triangular fabric nose, with a rounded lower point.
+    const nose=new THREE.Shape();nose.moveTo(-.023,.011);nose.quadraticCurveTo(0,.019,.023,.011);
+    nose.quadraticCurveTo(.027,.006,.007,-.016);nose.quadraticCurveTo(0,-.023,-.007,-.016);nose.quadraticCurveTo(-.027,.006,-.023,.011);
+    addMesh(group,new THREE.ExtrudeGeometry(nose,{depth:.008,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:3,curveSegments:16,steps:1}),materials.nose,[0,noseY,noseZ],null,false,true);
+    function thread(points,r=.0024,material=materials.nose){
+      const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+      addMesh(group,new THREE.TubeGeometry(curve,24,r,6,false),material,null,null,false,true);
+    }
+    const mz=isBear?.238:.211;
+    thread([[0,noseY-.017,mz],[0,noseY-.038,mz],[-.016,noseY-.047,mz-.003],[-.028,noseY-.040,mz-.006]]);
+    thread([[0,noseY-.038,mz],[.016,noseY-.047,mz-.003],[.028,noseY-.040,mz-.006]]);
+    // Very fine centre stitching, not a second belly or extra limb.
+    const seam=[];for(let i=0;i<=12;i++){const y=-.07-i*.014;seam.push([0,y,referenceEllipsoidSurface(torso,0,y)+.0018]);}
+    if(isBear)thread(seam,.0011,materials.inner);
+    // Put the rigid-body origin inside the seated support area between rump
+    // and forward paws; this is a model-space offset, not a holding force.
+    const root=new THREE.Group();group.position.z=isBear?-.10:-.055;root.add(group);return root;
+  }
+  const dolphinProfile=[
+    [-.515,-.055,0,0],[-.492,-.05,.040,.052],[-.414,-.025,.068,.103],
+    [-.345,.035,.139,.151],[-.22,.052,.201,.188],[-.055,.041,.213,.192],
+    [.115,.010,.178,.159],[.265,-.036,.116,.105],[.38,-.062,.060,.060],
+    [.46,-.057,.037,.042],[.495,-.057,0,0]
+  ];
+  function dolphinSection(x){
+    let i=0;while(i<dolphinProfile.length-2&&x>dolphinProfile[i+1][0])i++;
+    const a=dolphinProfile[i],b=dolphinProfile[i+1],t=Math.max(0,Math.min(1,(x-a[0])/(b[0]-a[0])));
+    const result=[x];
+    // Cubic Hermite interpolation keeps the forehead, back and tail continuous.
+    for(let j=1;j<=3;j++){
+      const prev=dolphinProfile[Math.max(0,i-1)],next=dolphinProfile[Math.min(dolphinProfile.length-1,i+2)];
+      const m0=(b[j]-prev[j])/(b[0]-prev[0]),m1=(next[j]-a[j])/(next[0]-a[0]),h=b[0]-a[0];
+      result.push((2*t*t*t-3*t*t+1)*a[j]+(t*t*t-2*t*t+t)*h*m0+(-2*t*t*t+3*t*t)*b[j]+(t*t*t-t*t)*h*m1);
+    }
+    result[2]=Math.max(0,result[2]);result[3]=Math.max(0,result[3]);return result;
+  }
+  function dolphinBodyGeometry(){
+    const vertices=[],colors=[],uv=[],indices=[],rings=100,sides=64;
+    const blue=new THREE.Color(0x086bd6),cream=new THREE.Color(0x74bdea),c=new THREE.Color();
+    for(let i=0;i<=rings;i++){
+      const [x,y,ry,rz]=dolphinSection(-.515+1.01*i/rings);
+      for(let j=0;j<=sides;j++){
+        const a=j/sides*Math.PI*2,sy=Math.cos(a),sz=Math.sin(a);
+        vertices.push(x,y+ry*sy,rz*sz);uv.push(i/rings,j/sides);
+        const mix=THREE.MathUtils.smoothstep(sy,-.42,-.28);c.copy(cream).lerp(blue,mix);colors.push(c.r,c.g,c.b);
+      }
+    }
+    for(let i=0;i<rings;i++)for(let j=0;j<sides;j++){const a=i*(sides+1)+j,b=a+sides+1;indices.push(a,a+1,b,b,a+1,b+1);}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(new Float32Array(vertices.length),3));
+    g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return g;
+  }
+  function dolphinFinSpecs(){
+    const specs=[{name:'dorsal-fin',plane:'xy',p:[.035,.184,0],thickness:.036,outline:[[-.10,0],[-.055,.085],[.02,.176],[.085,.185],[.104,.15],[.060,.035],[.105,-.014]]}];
+    for(const sign of [-1,1]){
+      specs.push({name:'pectoral-fin',plane:'xz',sign,p:[-.095,-.108,sign*.112],thickness:.035,tilt:-.20,
+        outline:[[-.07,0],[-.06,.065],[-.005,.155],[.075,.235],[.127,.21],[.116,.14],[.065,.035],[.035,-.018]]});
+      specs.push({name:'tail-fluke',plane:'xz',sign,p:[.421,-.055,0],thickness:.027,tilt:.035,
+        outline:[[-.025,0],[.005,.072],[.075,.183],[.139,.202],[.154,.177],[.107,.085],[.064,.012],[.035,-.018]]});
+    }
+    return specs;
+  }
+  function dolphinFinData(spec){
+    const points=spec.outline.map(p=>new THREE.Vector3(p[0],p[1],0));
+    const curve=new THREE.CatmullRomCurve3(points,true,'centripetal');
+    const center=points.reduce((v,p)=>v.add(p),new THREE.Vector3()).multiplyScalar(1/points.length);
+    return {curve,center};
+  }
+  function dolphinFinPoint(spec,u,v,w){
+    if(spec.plane==='xy')return [spec.p[0]+u,spec.p[1]+v,spec.p[2]+w];
+    return [spec.p[0]+u,spec.p[1]+w+(spec.tilt||0)*v,spec.p[2]+(spec.sign||1)*v];
+  }
+  function dolphinFinGeometry(spec){
+    const {curve,center}=dolphinFinData(spec),g=new THREE.SphereGeometry(1,48,28),p=g.attributes.position;
+    for(let i=0;i<p.count;i++){
+      const x=p.getX(i),y=p.getY(i),z=p.getZ(i),r=Math.hypot(x,y);
+      const t=((Math.atan2(y,x)/(Math.PI*2))+1)%1,b=curve.getPoint(t);
+      p.setXYZ(i,...dolphinFinPoint(spec,center.x+(b.x-center.x)*r,center.y+(b.y-center.y)*r,z*spec.thickness));
+    }
+    // The xz mapping reverses winding on one side; keep normals outward.
+    const area=spec.outline.reduce((sum,p,i)=>{const q=spec.outline[(i+1)%spec.outline.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
+    if((area<0)!==(spec.plane==='xz'&&spec.sign===1)){const idx=g.index;for(let i=0;i<idx.count;i+=3){const a=idx.getX(i+1);idx.setX(i+1,idx.getX(i+2));idx.setX(i+2,a);}}
+    g.computeVertexNormals();return g;
+  }
+  function referenceDolphinMesh(){
+    const group=new THREE.Group(),fur=referenceFurTexture();
+    const skin=mat(0xffffff,.97,0,{vertexColors:true,bumpMap:fur,bumpScale:.0013});
+    const finMat=mat(0x086bd6,.98,0,{bumpMap:fur,bumpScale:.0015});
+    const ink=mat(0x172334,.25),shine=mat(0xffffff,.15),sphere=new THREE.SphereGeometry(1,32,24);
+    const body=addMesh(group,dolphinBodyGeometry(),skin,null,null);body.name='continuous-body';
+    for(const spec of dolphinFinSpecs()){const mesh=addMesh(group,dolphinFinGeometry(spec),finMat,null,null);mesh.name=spec.name;}
+    for(const k of [-1,1]){
+      const x=-.326,y=.037,[,cy,ry,rz]=dolphinSection(x),z=rz*Math.sqrt(1-((y-cy)/ry)**2);
+      addMesh(group,sphere,ink,[x,y,k*(z+.005)],[.017,.020,.013],false,true);
+      addMesh(group,sphere,shine,[x-.004,y+.007,k*(z+.017)],[.0045,.005,.002],false,false);
+      const pts=[];
+      for(let i=0;i<=20;i++){
+        const x=-.492+.157*i/20,[,cy,ry,rz]=dolphinSection(x),y=cy-ry*(.26+.10*Math.sin(i/20*Math.PI));
+        const z=rz*Math.sqrt(Math.max(0,1-((y-cy)/ry)**2));pts.push(new THREE.Vector3(x,y,k*(z+.002)));
+      }
+      addMesh(group,new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),32,.0034,6,false),ink,null,null,false,true);
+    }
+    return group;
+  }
+  // A sphere-only envelope is required by the existing claw distance code.
+  // Each sphere is fitted INSIDE a sampled model surface, not a generic box.
+  function referenceInscribedSpheres(surface,candidates){
+    const out=[];
+    for(const p of candidates){
+      let min=Infinity;for(let i=0;i<surface.length;i+=3){const dx=surface[i]-p[0],dy=surface[i+1]-p[1],dz=surface[i+2]-p[2];min=Math.min(min,dx*dx+dy*dy+dz*dz);}
+      const r=Math.sqrt(min)-.0015;if(r>.006)out.push({p,r});
+    }
+    return out;
+  }
+  function referenceCollisionParts(type){
+    if(referenceCollisionCache.has(type))return referenceCollisionCache.get(type);
+    const result=[];
+    if(type==='bear'||type==='bunny')for(const part of referenceAnimalParts(type)){
+      const [rx,ry,rz]=part.size,surface=[];
+      for(let j=0;j<=24;j++)for(let i=0;i<48;i++){
+        const a=i*Math.PI/24,b=j*Math.PI/24;surface.push(rx*Math.sin(b)*Math.cos(a),ry*Math.cos(b),rz*Math.sin(b)*Math.sin(a));
+      }
+      const axes=part.size.map((r,i)=>({r,i})).sort((a,b)=>b.r-a.r),minor=axes[2].r,candidates=[];
+      const major=axes[0],middle=axes[1];
+      const extent=Math.max(0,major.r-minor*.72),n=Math.max(2,Math.ceil(extent*2/(minor*.7)));
+      for(let j=0;j<=n;j++){
+        const p=[0,0,0];p[major.i]=-extent+2*extent*j/n;candidates.push(p);
+      }
+      // Additional centres follow the second axis of broad, flattened parts.
+      if(middle.r>minor*1.15)for(const sign of [-1,1]){
+        const p=[0,0,0];p[middle.i]=sign*(middle.r-minor*.78);candidates.push(p);
+      }
+      if(middle.r>minor*1.10)for(const u of [-1,1])for(const v of [-1,1]){
+        const p=[0,0,0];p[major.i]=u*(major.r-minor*.78)*.60;p[middle.i]=v*(middle.r-minor*.78)*.60;candidates.push(p);
+      }
+      const a=part.rz||0;
+      for(const ball of referenceInscribedSpheres(surface,candidates)){
+        const [x,y,z]=ball.p;result.push({p:[part.p[0]+Math.cos(a)*x-Math.sin(a)*y,part.p[1]+Math.sin(a)*x+Math.cos(a)*y,part.p[2]+z],r:ball.r});
+      }
+    }else{
+      const g=dolphinBodyGeometry(),surface=g.attributes.position.array,candidates=[];
+      for(let i=0;i<31;i++){const x=-.491+i*.0315,[,y]=dolphinSection(x);candidates.push([x,y,0]);}
+      for(const x of [-.46,-.425,-.395,-.365]){const [,y,ry,rz]=dolphinSection(x);for(const sign of [-1,1])candidates.push([x,y,sign*rz*.55]);}
+      result.push(...referenceInscribedSpheres(surface,candidates));
+      // Fill the remaining beak/forehead transition using inward normals.
+      // These are fitted spheres, never oversized invisible contact barriers.
+      const normals=g.attributes.normal.array;
+      for(let pass=0;pass<14;pass++){
+        let worst=.022,index=-1;
+        for(let i=0;i<surface.length;i+=9){
+          let gap=Infinity;
+          for(const b of result)gap=Math.min(gap,Math.hypot(surface[i]-b.p[0],surface[i+1]-b.p[1],surface[i+2]-b.p[2])-b.r);
+          if(gap>worst){worst=gap;index=i;}
+        }
+        if(index<0)break;
+        const p=[surface[index]-normals[index]*.038,surface[index+1]-normals[index+1]*.038,surface[index+2]-normals[index+2]*.038];
+        const [,cy,ry,rz]=dolphinSection(p[0]);
+        if(ry<=0||rz<=0||((p[1]-cy)/ry)**2+(p[2]/rz)**2>=1)break;
+        const fitted=referenceInscribedSpheres(surface,[p]);if(!fitted.length)break;result.push(...fitted);
+      }
+      g.dispose();
+      for(const spec of dolphinFinSpecs()){
+        const g=dolphinFinGeometry(spec),{curve,center}=dolphinFinData(spec),candidates=[dolphinFinPoint(spec,center.x,center.y,0)];
+        for(const radius of [.45,.78])for(let i=0;i<8;i++){
+          const b=curve.getPoint(i/8);candidates.push(dolphinFinPoint(spec,center.x+(b.x-center.x)*radius,center.y+(b.y-center.y)*radius,0));
+        }
+        result.push(...referenceInscribedSpheres(g.attributes.position.array,candidates));g.dispose();
+      }
+    }
+    if(type==='bear'||type==='bunny')for(const sphere of result)sphere.p[2]-=type==='bear'?.10:.055;
+    referenceCollisionCache.set(type,result);return result;
+  }
+
+  // Four distinct plush silhouettes. Structural spheres/capsules are shared
+  // by rendering and physics; surface embroidery has no bulky hidden collider.
+  function toyParts(def){
+    if(def.type!=='sprite')return referenceCollisionParts(def.type);
+    const ball=(p,r,m='fur')=>({p,r,m});
+    const pill=(p,r,length,angle=0,m='fur')=>({p,r,length,angle,m});
+    // Each foot is ONE continuous capsule, including its heel.
+    const foot=(p,r,length)=>({...pill(p,r,length),axis:'z',role:'foot'});
+    const hand=p=>({...p,role:'hand'});
+    const tail=p=>({...p,role:'tail'});
+    let parts=[];
+    if(def.type==='bear'){
+      parts=[ball([0,-.105,0],.235),ball([0,.24,.015],.215),ball([0,.075,0],.155)];
+      for(const k of [-1,1])parts.push(
+        ball([k*.16,.405,.005],.083),
+        hand(pill([k*.225,-.08,.015],.082,.115,-k*.23)),
+        foot([k*.148,-.295,.05],.115,.20));
+      parts.push(tail(ball([0,-.20,-.22],.065)));
+    }else if(def.type==='bunny'){
+      parts=[pill([0,-.07,0],.178,.22),ball([0,.28,.008],.196),ball([0,.12,0],.13)];
+      for(const k of [-1,1])parts.push(
+        pill([k*.095,.57,0],.057,.25,-k*.10),
+        hand(pill([k*.178,-.05,.015],.052,.11,-k*.13)),
+        foot([k*.095,-.335,.0125],.074,.095));
+      parts.push(tail(ball([0,-.22,-.18],.065,'cream')));
+    }else if(def.type==='dog'){
+      parts=[ball([0,-.12,0],.235),ball([0,.17,.025],.245)];
+      for(const k of [-1,1])parts.push(
+        pill([k*.269,.10,.005],.105,.245,k*.12,'ear'),
+        foot([k*.135,-.315,.02],.086,.17),hand(ball([k*.218,-.12,.06],.065)));
+      parts.push(tail(ball([0,-.18,-.235],.065,'ear')));
+    }else{
+      // A single five-point cushion, no head, arms, ears, or feet.
+      parts=[ball([0,0,0],.195)];
+      for(let i=0;i<5;i++){
+        const a=Math.PI/2+i*Math.PI*2/5;
+        parts.push(ball([Math.cos(a)*.17,Math.sin(a)*.17,0],.116));
+        parts.push(ball([Math.cos(a)*.265,Math.sin(a)*.265,0],.077));
+      }
+    }
+    return parts;
+  }
+  function makeToyMesh(def) {
+    if(def.type==='bear'||def.type==='bunny')return referenceAnimalMesh(def.type);
+    if(def.type==='dog')return referenceDolphinMesh();
+    const group=new THREE.Group();
+    // Saturated body colours remain distinct against the pale cabinet floor.
+    const palette={bear:[0x99491f,0xe0a15c,0x62301d],bunny:[0xe83b88,0xffa3c5,0x9b235e],dog:[0xe18a16,0xffc35b,0x66351f],sprite:[0xffc800,0xffe684,0xd28c00]}[def.type];
+    const mats={fur:mat(palette[0],.96),cream:mat(palette[1],.98),ear:mat(palette[2],.97),
+      ink:mat(0x251c2b,.82),pink:mat(0xff799f,.98),white:mat(0xfff4df,.6),gold:mat(0xffc32f,.82)};
+    const sphere=new THREE.SphereGeometry(1,40,28),parts=toyParts(def);
+    function starRadius(a){return .285+.065*Math.cos(5*(a-Math.PI/2));}
+    if(def.type==='sprite'){
+      // Deform a closed sphere into a pillowy star: rounded tips and valleys,
+      // with a continuously curved front AND back, rather than a flat cutout.
+      const g=new THREE.SphereGeometry(1,100,48),v=g.attributes.position;
+      for(let i=0;i<v.count;i++){
+        const x=v.getX(i),y=v.getY(i),z=v.getZ(i),a=Math.atan2(y,x),r=starRadius(a);
+        v.setXYZ(i,x*r,y*r,z*.195);
+      }
+      g.computeVertexNormals();addMesh(group,g,mats.fur,null,null);
+    }else for(const part of parts){
+      const geo=part.length?new THREE.CapsuleGeometry(part.r,part.length,10,24):sphere;
+      const mesh=addMesh(group,geo,mats[part.m],part.p,part.length?null:[part.r,part.r,part.r]);
+      mesh.rotation.z=part.angle||0;
+      if(part.axis==='z')mesh.rotation.x=Math.PI/2;
+      mesh.name=part.role||'plush-part';
+    }
+    // Exact front surface of the visible primitives, including rotated ears.
+    function front(x,y,surfaceParts=parts){
+      if(def.type==='sprite'){
+        const r=starRadius(Math.atan2(y,x));return .195*Math.sqrt(Math.max(0,1-(x*x+y*y)/(r*r)));
+      }
+      return Math.max(...surfaceParts.map(p=>{
+        const a=p.angle||0,dx=x-p.p[0],dy=y-p.p[1];
+        if(p.axis==='z'){
+          const q=p.r*p.r-dx*dx-dy*dy;
+          return q>=0?p.p[2]+p.length/2+Math.sqrt(q):-1;
+        }
+        const lx=Math.cos(a)*dx+Math.sin(a)*dy,ly=-Math.sin(a)*dx+Math.cos(a)*dy;
+        const ey=Math.max(0,Math.abs(ly)-(p.length||0)/2),q=p.r*p.r-lx*lx-ey*ey;
+        return q>=0?p.p[2]+Math.sqrt(q):-1;
+      }));
+    }
+    let embroideryLayer=0;
+    function patch(cx,cy,rx,ry,material,surfaceParts=parts){
+      const offset=.003+(++embroideryLayer)*.00015;
+      const vertices=[],indices=[],rings=10,segments=48;
+      for(let j=0;j<=rings;j++)for(let i=0;i<=segments;i++){
+        const t=i/segments*Math.PI*2,rad=j/rings,x=cx+Math.cos(t)*rx*rad,y=cy+Math.sin(t)*ry*rad;
+        vertices.push(x,y,front(x,y,surfaceParts)+offset);
+      }
+      for(let j=0;j<rings;j++)for(let i=0;i<segments;i++){
+        const a=j*(segments+1)+i,b=a+segments+1;indices.push(a,a+1,b,b,a+1,b+1);
+      }
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
+      addMesh(group,g,material,null,null,false,true);
+    }
+    function stitch(points,material=mats.ink,r=.0035){
+      const curve=new THREE.CatmullRomCurve3(points.map(([x,y])=>new THREE.Vector3(x,y,front(x,y)+.012)));
+      addMesh(group,new THREE.TubeGeometry(curve,24,r,6,false),material,null,null,false,true);
+    }
+    const faceY={bear:.27,bunny:.30,dog:.20,sprite:.04}[def.type];
+    const eyeX=def.type==='sprite'?.075:.072;
+    for(const k of [-1,1]){
+      patch(k*eyeX,faceY,.016,.023,mats.ink);
+      patch(k*eyeX-.004,faceY+.009,.0045,.006,mats.white);
+      patch(k*.12,faceY-.053,.031,.017,mats.pink);
+    }
+    if(def.type==='bear'||def.type==='dog'){
+      patch(0,faceY-.064,.068,.045,mats.cream);
+      patch(0,faceY-.048,.022,.014,mats.ink);
+      stitch([[0,faceY-.06],[0,faceY-.079],[-.014,faceY-.087],[-.026,faceY-.082]]);
+      stitch([[0,faceY-.079],[.014,faceY-.087],[.026,faceY-.082]]);
+      if(def.type==='dog'){patch(.007,faceY-.105,.012,.021,mats.pink);stitch([[.007,faceY-.10],[.007,faceY-.116]],mats.ear,.002);}
+    }else{
+      if(def.type==='bunny')patch(0,faceY-.05,.012,.009,mats.ear);
+      stitch([[-.024,faceY-.063],[-.012,faceY-.075],[0,faceY-.064],[.012,faceY-.075],[.024,faceY-.063]]);
+    }
+    if(def.type==='bear'){
+      patch(0,-.105,.132,.15,mats.cream,[parts[0]]);
+      for(const k of [-1,1]){
+        patch(k*.16,.413,.047,.046,mats.cream);
+        patch(k*.148,-.29,.078,.075,mats.ear);
+        for(const dx of [-.031,0,.031])patch(k*.148+dx,-.246,.009,.013,mats.cream);
+      }
+      // A stitched centre seam and tiny navel make the sitting belly plush.
+      stitch([[0,-.045],[0,-.085],[0,-.13]],mats.ear,.002);
+      stitch([[-.009,-.148],[.009,-.16]],mats.ear,.002);
+      stitch([[.009,-.148],[-.009,-.16]],mats.ear,.002);
+    }else if(def.type==='bunny'){
+      patch(0,-.065,.10,.17,mats.cream);
+      for(const k of [-1,1])patch(k*.095,.59,.027,.133,mats.cream);
+      // Small neck ribbon, kept flush to avoid obstructing the claw.
+      patch(-.037,.105,.035,.022,mats.ear);patch(.037,.105,.035,.022,mats.ear);patch(0,.105,.018,.018,mats.gold);
+    }else if(def.type==='dog'){
+      patch(0,-.125,.12,.11,mats.cream);
+      for(const k of [-1,1]){
+        patch(k*.281,.065,.047,.13,mats.cream);
+        for(const dx of [-.02,.02])patch(k*.135+dx,-.32,.007,.014,mats.ear);
+      }
+    }else{
+      // Tiny golden freckles; the whole silhouette itself is the star.
+      for(const k of [-1,1])for(let j=0;j<2;j++)patch(k*(.139+j*.015),-.031,.004,.004,mats.gold);
+      patch(-.052,.155,.017,.028,mats.cream);
+      patch(-.077,.127,.006,.009,mats.cream);
+    }
     return group;
   }
   function createPrize(def, index) {
     const s = prizeScale(def);
     const body = new CANNON.Body({ mass:1.45, material:plushPhysicsMat, linearDamping:.34, angularDamping:.46 });
-    // The collision envelope deliberately follows the rendered silhouette.
-    // Do NOT use one large hidden sphere: the bear is a soft, wide plush, so
-    // the torso is approximated by overlapping spheres whose outer surface
-    // tracks the visible body at the center, shoulders and lower body.
-    // This keeps the claw from passing through visible fur while still giving
-    // Cannon.js a stable convex compound made only from primitive shapes.
-    body.addShape(new CANNON.Sphere(.205*s),new CANNON.Vec3(0,-.02*s,0));
-    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(-.105*s,.015*s,0));
-    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(.105*s,.015*s,0));
-    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(0,-.17*s,0));
-    body.addShape(new CANNON.Sphere(.145*s),new CANNON.Vec3(0,.155*s,0));
-    // Head: the rendered head is a separate flattened sphere.
-    body.addShape(new CANNON.Sphere(.215*s),new CANNON.Vec3(0,.355*s,0));
-    // Small neck/transition region so the gap between torso and head is not
-    // an artificial hole in the collision silhouette.
-    body.addShape(new CANNON.Sphere(.155*s),new CANNON.Vec3(0,.245*s,0));
-    // Ears and limbs follow the visible mesh positions.
-    for(const sign of [-1,1]){
-      if(def.type==='bunny'){
-        for(const y of [.49,.57,.65,.72])body.addShape(new CANNON.Sphere(.072*s),new CANNON.Vec3(sign*(.125+(y-.595)*.13)*s,y*s,0));
-      }else if(def.type==='dog'){
-        for(const y of [.24,.34,.44])body.addShape(new CANNON.Sphere(.09*s),new CANNON.Vec3(sign*.23*s,y*s,-.015*s));
-      }else{
-        body.addShape(new CANNON.Sphere((def.type==='sprite'?.10:.09)*s),new CANNON.Vec3(sign*(def.type==='sprite'?.19:.145)*s,.54*s,0));
+    // Capsules use sphere chains; the star uses a central sphere and five
+    // rounded lobes approximating its cushion envelope. Existing sphere-based
+    // claw distance/contact logic and all material properties are unchanged.
+    for(const part of toyParts(def)){
+      const length=part.length||0,count=length?Math.ceil(length/.025):0;
+      for(let i=0;i<=count;i++){
+        const y=count?-length/2+length*i/count:0,a=part.angle||0;
+        body.addShape(new CANNON.Sphere(part.r*s),new CANNON.Vec3(
+          (part.p[0]-(part.axis==='z'?0:Math.sin(a)*y))*s,
+          (part.p[1]+(part.axis==='z'?0:Math.cos(a)*y))*s,
+          (part.p[2]+(part.axis==='z'?y:0))*s));
       }
     }
-    body.addShape(new CANNON.Sphere(.12*s),new CANNON.Vec3(-.295*s,.055*s,0));
-    body.addShape(new CANNON.Sphere(.12*s),new CANNON.Vec3(.295*s,.055*s,0));
-    body.addShape(new CANNON.Sphere(.145*s),new CANNON.Vec3(-.135*s,-.275*s,.035*s));
-    body.addShape(new CANNON.Sphere(.145*s),new CANNON.Vec3(.135*s,-.275*s,.035*s));
     // Default collision group/mask intentionally includes static cabinet surfaces
     // and the kinematic claw layer (group 2), so every gameplay surface participates.
     body.collisionFilterGroup=1;
@@ -1093,10 +1435,10 @@ function startFullGame() {
     // Simple two-piece L-shaped claw. The claw is rigid; only the root hinge
     // moves. Keeping exactly two polygonal pieces makes the silhouette clean
     // while preserving the established root rotation and opening motion.
-    const longLen=1.00*1.2;
-    const shortLen=.50*1.2;
-    const w=.090*1.2;
-    const d=.080*1.2;
+    const longLen=1.05*1.2; // 調整: 縦爪 +5%
+    const shortLen=.575*1.2; // 調整: 内向き先端 +15%
+    const w=.060*1.2; // 調整: 爪幅 0.0936 → 0.072（約23.1%薄型化）
+    const d=.052*1.2; // 調整: 爪奥行 0.0864 → 0.0624（約27.8%薄型化）
 
     // Long vertical piece: from the root straight downward.
     const shape1=new CANNON.Box(new CANNON.Vec3(w*.5,longLen*.5,d*.5));
@@ -1217,7 +1559,7 @@ function startFullGame() {
     // Positive radial direction = outward. Closing rotates the whole L so the
     // short inward-facing toe moves toward the center and creates a cradle.
     const openAngle=1.10;
-    const closedAngle=0.46;
+    const closedAngle=0.46; // 調整: 閉じ角を0.46 radに戻す
     const hingeAngle=openAngle+(closedAngle-openAngle)*openAmount;
     const target=new CANNON.Vec3(root.x,root.y,root.z);
 
@@ -1272,7 +1614,7 @@ function startFullGame() {
   const ceilingControl={active:false,releasing:false,elapsed:0,ticks:0,targets:[0,0,0]};
   const clawServo = { value:0, velocity:0, target:0 };
   const homeY=5.20;
-  const clawMinY=1.50;
+  const clawMinY=1.48; // 調整: 爪長と閉じ角に合わせ床との隙間を維持
   const clawSpring = { stiffness:58, damping:11 };
   function setClawTarget(target){ clawServo.target=clamp(target,0,1); }
   function updateClawSpring(dt){
@@ -1421,10 +1763,10 @@ function startFullGame() {
   }
   function currentClawPoints(){
     const pts=[];
-    const toeReach=1.00*1.2, inward=.50*1.2;
+    const toeReach=1.05*1.2, inward=.575*1.2; // 調整: 接触点計算も実爪と同期
     for(let i=0;i<3;i++){
       const a=(Math.PI*2*i/3)+Math.PI/6;
-      const openAngle=1.10, closedAngle=0.46;
+      const openAngle=1.10, closedAngle=0.46; // 調整: 爪先計算を駆動角と同期
       const hingeAngle=openAngle+(closedAngle-openAngle)*fingerClose[i];
       const qRad=new CANNON.Quaternion(); qRad.setFromAxisAngle(new CANNON.Vec3(0,1,0),a);
       const qHinge=new CANNON.Quaternion(); qHinge.setFromAxisAngle(new CANNON.Vec3(0,0,1),hingeAngle);
@@ -2279,7 +2621,7 @@ function startFullGame() {
   function showWinOverlay(prize){
     const overlay=$('winOverlay');
     $('winTitle').textContent='GET!!';
-    document.querySelector('.win-bear').textContent=({bear:'🧸',bunny:'🐰',dog:'🐶',sprite:'🌟'})[prize.def.type]||'🎁';
+    document.querySelector('.win-bear').textContent=({bear:'🧸',bunny:'🐰',dog:'🐬',sprite:'🌟'})[prize.def.type]||'🎁';
     $('winCaption').textContent=`「${prize.def.name}」を獲得！ おめでとう！`;
     $('winAttempts').textContent=`獲得までのプレイ回数：${state.round}回`;
     $('winSavings').textContent=`節約できた金額：${(state.round*100).toLocaleString('ja-JP')}円`;
